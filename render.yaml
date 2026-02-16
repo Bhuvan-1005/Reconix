@@ -10,11 +10,10 @@ databases:
 services:
   - type: web
     name: reconix-server
-    runtime: jvm
+    runtime: docker
     repo: https://github.com/Bhuvan-1005/Reconix
     plan: starter
-    buildCommand: ./gradlew :server:buildFatJar --no-daemon -x test
-    startCommand: java -jar server/build/libs/server-all.jar
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
