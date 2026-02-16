@@ -8,7 +8,7 @@ COPY shared/build.gradle.kts shared/build.gradle.kts
 COPY composeApp/build.gradle.kts composeApp/build.gradle.kts
 COPY shared/ shared/
 COPY server/ server/
-RUN ./gradlew :server:buildFatJar --no-daemon -x test
+RUN chmod +x gradlew && ./gradlew :server:buildFatJar --no-daemon -x test
 
 # Stage 2: Lightweight runtime
 FROM eclipse-temurin:17-jre-alpine
