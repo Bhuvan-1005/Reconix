@@ -318,8 +318,8 @@ data class UserDTO(
  * Both Frontend and Backend reference these constants
  */
 object ApiRoutes {
-    const val BASE_URL = "http://10.116.40.38:8081" // Laptop IP address
-    const val BASE_URL_LOCALHOST = "http://localhost:8081"
+    const val BASE_URL = "https://reconix-server.onrender.com" // Render deployment
+    const val BASE_URL_LOCALHOST = "http://localhost:8081" // Local development
 
     object Auth {
         const val LOGIN = "/auth/login"
