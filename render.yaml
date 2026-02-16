@@ -1,0 +1,25 @@
+# Render Blueprint — Infrastructure-as-Code
+# Deploy via: Render Dashboard → New → Blueprint → Connect GitHub repo
+
+databases:
+  - name: reconix-db
+    plan: starter
+    databaseName: invoice_db
+    user: reconix_user
+
+services:
+  - type: web
+    name: reconix-server
+    runtime: jvm
+    repo: https://github.com/Bhuvan-1005/Reconix
+    plan: starter
+    buildCommand: ./gradlew :server:buildFatJar --no-daemon -x test
+    startCommand: java -jar server/build/libs/server-all.jar
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reconix-db
+          property: connectionString
+      - key: USE_H2
+        value: "false"

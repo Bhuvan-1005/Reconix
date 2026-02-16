@@ -37,20 +37,33 @@ object DatabaseFactory {
     }
 
     private fun createHikariDataSource(): HikariDataSource {
-        val useH2 = System.getenv("USE_H2")?.toBoolean() ?: true // Default to H2 for easy testing
+        val databaseUrl = System.getenv("DATABASE_URL")
+        val useH2 = databaseUrl == null && (System.getenv("USE_H2")?.toBoolean() ?: true)
 
         val config = HikariConfig().apply {
             if (useH2) {
-                // H2 In-Memory Database (no Docker required!)
+                // H2 In-Memory Database (for local development)
                 driverClassName = "org.h2.Driver"
                 jdbcUrl = "jdbc:h2:mem:invoice_db;DB_CLOSE_DELAY=-1;MODE=PostgreSQL"
                 username = "sa"
                 password = ""
-                println("✅ Using H2 In-Memory Database (No Docker required)")
-            } else {
-                // PostgreSQL (requires Docker)
+                println("✅ Using H2 In-Memory Database (local development)")
+            } else if (databaseUrl != null) {
+                // Parse Render-style DATABASE_URL: postgres://user:pass@host:port/dbname
                 driverClassName = "org.postgresql.Driver"
-                jdbcUrl = System.getenv("DATABASE_URL") ?: "jdbc:postgresql://localhost:5432/invoice_db"
+                val cleanUrl = databaseUrl
+                    .replace("postgres://", "http://")
+                    .replace("postgresql://", "http://")
+                val uri = java.net.URI(cleanUrl)
+                val userInfo = uri.userInfo?.split(":") ?: listOf("", "")
+                username = userInfo.getOrElse(0) { "" }
+                password = userInfo.getOrElse(1) { "" }
+                jdbcUrl = "jdbc:postgresql://${uri.host}:${uri.port}${uri.path}?sslmode=require"
+                println("✅ Using PostgreSQL Database (Render)")
+            } else {
+                // PostgreSQL with individual env vars
+                driverClassName = "org.postgresql.Driver"
+                jdbcUrl = "jdbc:postgresql://localhost:5432/invoice_db"
                 username = System.getenv("DATABASE_USER") ?: "user"
                 password = System.getenv("DATABASE_PASSWORD") ?: "password"
                 println("✅ Using PostgreSQL Database")
