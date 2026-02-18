@@ -84,13 +84,13 @@ fun FinanceReviewScreen(
         containerColor = Color.Transparent,
         topBar = {
             Surface(
-                color = SlateBlue800.copy(alpha = 0.6f),
-                tonalElevation = 4.dp
+                color = Color(0xFF0D1B3E),
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
@@ -119,8 +119,8 @@ fun FinanceReviewScreen(
         bottomBar = {
             // ── Action Buttons ──────────────────────────
             Surface(
-                color = SlateBlue800.copy(alpha = 0.8f),
-                tonalElevation = 8.dp
+                color = Color(0xFF0D1B3E),
+                tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
@@ -177,7 +177,7 @@ fun FinanceReviewScreen(
                 .fillMaxSize()
                 .background(backgroundGradient)
                 .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ── Match Summary Card ──────────────────────

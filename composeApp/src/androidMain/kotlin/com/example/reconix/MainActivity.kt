@@ -4,9 +4,11 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.Composable
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.*
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.view.WindowCompat
 
@@ -19,7 +21,28 @@ class MainActivity : ComponentActivity() {
         setupTransparentStatusBar()
 
         setContent {
-            App()
+            // Pending callback: stored when the upload screen requests a file
+            var pendingCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
+
+            // Register the Android system file picker
+            val filePickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.GetContent()
+            ) { uri ->
+                val fileName = uri?.lastPathSegment
+                    ?.substringAfterLast("/")
+                    ?.substringAfterLast("%2F")
+                    ?: uri?.path?.substringAfterLast("/")
+                    ?: "selected_file"
+                pendingCallback?.invoke(fileName)
+                pendingCallback = null
+            }
+
+            App(
+                onRequestFilePick = { callback ->
+                    pendingCallback = callback
+                    filePickerLauncher.launch("*/*")
+                }
+            )
         }
     }
 

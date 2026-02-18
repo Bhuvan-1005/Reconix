@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -64,15 +65,16 @@ private val sampleOrders = listOf(
 fun VendorDashboardScreen(
     vendorName: String = "Acme Corp",
     onProfileClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
     onOrderClick: (String) -> Unit = {},
     onCreatePO: () -> Unit = {},
     onNavigateToFinance: () -> Unit = {}
 ) {
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            DeepSlateBlue,
-            Color(0xFF070E1B),
-            Color.Black
+        colorStops = arrayOf(
+            0.0f to DeepSlateBlue,
+            0.3f to Color(0xFF0A1530),
+            1.0f to Color(0xFF060E20)
         )
     )
 
@@ -85,29 +87,24 @@ fun VendorDashboardScreen(
                 .background(backgroundGradient)
                 .padding(innerPadding)
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    end = 20.dp,
-                    top = 24.dp,
-                    bottom = 32.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // ═══════════════════════════════════════════
-                // ── HEADER ─────────────────────────────────
-                // ═══════════════════════════════════════════
-                item {
-                    DashboardHeader(
-                        vendorName = vendorName,
-                        onProfileClick = onProfileClick
-                    )
-                }
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ── Full-width header (no side padding) ──
+                DashboardHeader(
+                    vendorName = vendorName,
+                    onProfileClick = onProfileClick,
+                    onLogout = onLogout
+                )
 
-                // ═══════════════════════════════════════════
-                // ── STAT CARDS GRID ────────────────────────
-                // ═══════════════════════════════════════════
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 20.dp,
+                        end = 20.dp,
+                        top = 20.dp,
+                        bottom = 100.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -155,7 +152,8 @@ fun VendorDashboardScreen(
                         onClick = { onOrderClick(order.poNumber) }
                     )
                 }
-            }
+            } // end LazyColumn
+            } // end Column
 
             // ── FAB: Create PO ──
             FloatingActionButton(
@@ -211,37 +209,107 @@ fun VendorDashboardScreen(
 @Composable
 private fun DashboardHeader(
     vendorName: String,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onLogout: () -> Unit
 ) {
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFF0D1B3E),
+                        Color(0xFF122250),
+                        Color(0xFF0D1B3E)
+                    )
+                )
+            )
     ) {
-        Column {
-            Text(
-                text = "Good Morning,",
-                style = MaterialTheme.typography.bodyLarge,
-                color = CoolGray
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = vendorName,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = PureWhite
-            )
-        }
-
-        IconButton(onClick = onProfileClick) {
-            Icon(
-                imageVector = Icons.Outlined.AccountCircle,
-                contentDescription = "Profile",
-                tint = CoolGray,
-                modifier = Modifier.size(36.dp)
-            )
+        // Top accent bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color.Transparent, ElectricIndigo, EmeraldMatch, Color.Transparent)
+                    )
+                )
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "Good Morning,",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = CoolGray
+                )
+                Text(
+                    text = vendorName,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = PureWhite
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(EmeraldMatch)
+                    )
+                    Text(
+                        text = "Vendor Portal · Live",
+                        fontSize = 12.sp,
+                        color = SilverText,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Profile
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF1A3066).copy(alpha = 0.6f),
+                    onClick = onProfileClick
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountCircle,
+                            contentDescription = "Profile",
+                            tint = SilverText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                // Logout
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF1A3066).copy(alpha = 0.6f),
+                    onClick = onLogout
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = SilverText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

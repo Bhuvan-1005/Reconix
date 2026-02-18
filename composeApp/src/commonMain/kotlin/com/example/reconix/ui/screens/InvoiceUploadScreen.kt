@@ -39,6 +39,7 @@ import com.example.reconix.ui.theme.*
 fun InvoiceUploadScreen(
     onBack: () -> Unit = {},
     onUploadComplete: (InvoiceUploadResponse) -> Unit = {},
+    onRequestFilePick: ((fileName: String) -> Unit) -> Unit = { _ -> },
     modifier: Modifier = Modifier
 ) {
     var isUploading by remember { mutableStateOf(false) }
@@ -56,7 +57,12 @@ fun InvoiceUploadScreen(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(
+                start = 20.dp,
+                end = 20.dp,
+                top = 20.dp,
+                bottom = 32.dp
+            ),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ── Header ──
@@ -104,11 +110,11 @@ fun InvoiceUploadScreen(
                 UploadDropZone(
                     isUploading = isUploading,
                     selectedFileName = selectedFileName,
-                    onFileSelected = { fileName ->
-                        selectedFileName = fileName
-                        isUploading = true
-                        // In a real app, this would trigger the actual file upload
-                        // For now, we simulate the upload flow
+                    onPickFile = {
+                        onRequestFilePick { fileName ->
+                            selectedFileName = fileName
+                            isUploading = true
+                        }
                     }
                 )
             }
@@ -235,7 +241,7 @@ fun InvoiceUploadScreen(
 private fun UploadDropZone(
     isUploading: Boolean,
     selectedFileName: String?,
-    onFileSelected: (String) -> Unit
+    onPickFile: () -> Unit
 ) {
     // Animated border
     val infiniteTransition = rememberInfiniteTransition()
@@ -264,7 +270,7 @@ private fun UploadDropZone(
                     shape = RoundedCornerShape(16.dp)
                 )
                 .clip(RoundedCornerShape(16.dp))
-                .clickable(enabled = !isUploading) { onFileSelected("Invoice_Sample.pdf") }
+                .clickable(enabled = !isUploading) { onPickFile() }
                 .padding(40.dp),
             contentAlignment = Alignment.Center
         ) {

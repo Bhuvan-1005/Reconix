@@ -27,7 +27,9 @@ sealed class Screen {
 }
 
 @Composable
-fun App() {
+fun App(
+    onRequestFilePick: ((fileName: String) -> Unit) -> Unit = { _ -> }
+) {
     ReconixTheme {
         Surface(
             modifier = Modifier.fillMaxSize(),
@@ -66,6 +68,10 @@ fun App() {
                     VendorDashboardScreen(
                         vendorName = AuthManager.currentUser ?: "Vendor",
                         onProfileClick = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
+                        },
+                        onLogout = {
                             AuthManager.logout()
                             currentScreen = Screen.Login
                         },
@@ -131,7 +137,8 @@ fun App() {
 
                 is Screen.InvoiceUpload -> {
                     InvoiceUploadScreen(
-                        onBack = { currentScreen = Screen.FinanceDashboard }
+                        onBack = { currentScreen = Screen.FinanceDashboard },
+                        onRequestFilePick = onRequestFilePick
                     )
                 }
 
