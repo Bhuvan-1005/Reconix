@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.reconix.auth.AuthManager
 import com.example.reconix.ui.LoginScreen
+import com.example.reconix.ui.SplashScreen
 import com.example.reconix.ui.screens.*
 import com.example.reconix.ui.theme.ReconixTheme
 
@@ -14,10 +15,13 @@ import com.example.reconix.ui.theme.ReconixTheme
  * Navigation destinations for the app
  */
 sealed class Screen {
+    data object Splash : Screen()
     data object Login : Screen()
     data object VendorDashboard : Screen()
     data object CreatePO : Screen()
+    data object VendorSubmit : Screen()
     data object FinanceDashboard : Screen()
+    data object FinanceReview : Screen()
     data object InvoiceUpload : Screen()
     data class ThreeWayMatch(val invoiceId: String) : Screen()
 }
@@ -29,9 +33,15 @@ fun App() {
             modifier = Modifier.fillMaxSize(),
             color = Color.Transparent
         ) {
-            var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+            var currentScreen by remember { mutableStateOf<Screen>(Screen.Splash) }
 
             when (val screen = currentScreen) {
+                is Screen.Splash -> {
+                    SplashScreen(
+                        onSplashComplete = { currentScreen = Screen.Login }
+                    )
+                }
+
                 is Screen.Login -> {
                     if (AuthManager.isAuthenticated) {
                         // Route based on role
@@ -60,13 +70,23 @@ fun App() {
                             currentScreen = Screen.Login
                         },
                         onOrderClick = { poNumber ->
-                            println("Clicked PO: $poNumber")
+                            currentScreen = Screen.VendorSubmit
                         },
                         onCreatePO = {
                             currentScreen = Screen.CreatePO
                         },
                         onNavigateToFinance = {
                             currentScreen = Screen.FinanceDashboard
+                        }
+                    )
+                }
+
+                is Screen.VendorSubmit -> {
+                    VendorSubmitScreen(
+                        onBack = { currentScreen = Screen.VendorDashboard },
+                        onSubmit = { invoiceNumber, amount ->
+                            println("Submitted: $invoiceNumber, Amount: $amount")
+                            currentScreen = Screen.VendorDashboard
                         }
                     )
                 }
@@ -92,6 +112,20 @@ fun App() {
                         onNavigateToVendor = {
                             currentScreen = Screen.VendorDashboard
                         }
+                    )
+                }
+
+                is Screen.FinanceReview -> {
+                    FinanceReviewScreen(
+                        onApprove = {
+                            println("Payment approved")
+                            currentScreen = Screen.FinanceDashboard
+                        },
+                        onReject = {
+                            println("Invoice rejected")
+                            currentScreen = Screen.FinanceDashboard
+                        },
+                        onBack = { currentScreen = Screen.FinanceDashboard }
                     )
                 }
 

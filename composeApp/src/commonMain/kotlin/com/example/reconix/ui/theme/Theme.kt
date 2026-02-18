@@ -18,71 +18,77 @@ import androidx.compose.runtime.Composable
  * ═══════════════════════════════════════════════════════════════
  */
 
-// ── Dark Color Scheme ───────────────────────────────────────
+// ── Dark Color Scheme — Deep Navy Fintech ──────────────────
 private val DarkColorScheme = darkColorScheme(
-    primary = ElectricIndigo,
-    onPrimary = PureWhite,
-    primaryContainer = SlateBlue800,
-    onPrimaryContainer = ElectricIndigoLight,
+    // Primary brand: vivid royal blue (#4F7FFF)
+    primary             = ElectricIndigo,
+    onPrimary           = PureWhite,
+    primaryContainer    = NavyLight,          // Elevated card surface
+    onPrimaryContainer  = ElectricIndigoLight,
 
-    secondary = NeonCyan,
-    onSecondary = DeepSlateBlue,
-    secondaryContainer = SlateBlue700,
-    onSecondaryContainer = NeonCyanLight,
+    // Secondary: Neon cyan for data highlights
+    secondary             = NeonCyan,
+    onSecondary           = DeepSlateBlue,
+    secondaryContainer    = SlateBlue700,
+    onSecondaryContainer  = NeonCyanLight,
 
-    tertiary = AmberWarning,
-    onTertiary = DeepSlateBlue,
-    tertiaryContainer = SlateBlue700,
-    onTertiaryContainer = AmberWarningLight,
+    // Tertiary: Gold for pending/warning states
+    tertiary             = GoldPending,
+    onTertiary           = DeepSlateBlue,
+    tertiaryContainer    = SlateBlue700,
+    onTertiaryContainer  = AmberWarningLight,
 
-    error = VividRose,
-    onError = PureWhite,
-    errorContainer = VividRoseDark,
-    onErrorContainer = VividRoseLight,
+    // Error: Crimson red (#FF2D5B)
+    error             = CrimsonMismatch,
+    onError           = PureWhite,
+    errorContainer    = CrimsonMismatchDark,
+    onErrorContainer  = VividRoseLight,
 
-    background = DeepSlateBlue,
-    onBackground = SoftGrey100,
+    // Background: True deep navy (#060E20)
+    background   = DeepSlateBlue,
+    onBackground = PureWhite,
 
-    surface = SlateBlue800,
-    onSurface = SoftGrey100,
-    surfaceVariant = SlateBlue700,
-    onSurfaceVariant = SoftGrey200,
+    // Surface: Navy card (#0D1B3E)
+    surface          = SlateBlue800,
+    onSurface        = PureWhite,
+    surfaceVariant   = SlateBlue700,
+    onSurfaceVariant = SilverText,
 
-    outline = SlateBlue600,
+    outline        = SlateBlue600,
     outlineVariant = SlateBlue700
 )
 
-// ── Light Color Scheme ──────────────────────────────────────
+// ── Light Color Scheme — Cloud White Fintech ───────────────
 private val LightColorScheme = lightColorScheme(
-    primary = ElectricIndigo,
-    onPrimary = PureWhite,
-    primaryContainer = SoftGrey100,
-    onPrimaryContainer = ElectricIndigoDark,
+    primary             = ElectricIndigoDark,
+    onPrimary           = PureWhite,
+    primaryContainer    = SoftGrey100,
+    onPrimaryContainer  = NavyPrimary,
 
-    secondary = NeonCyan,
-    onSecondary = PureWhite,
-    secondaryContainer = SoftGrey100,
-    onSecondaryContainer = NeonCyanDark,
+    secondary             = NeonCyanDark,
+    onSecondary           = PureWhite,
+    secondaryContainer    = SoftGrey100,
+    onSecondaryContainer  = NeonCyanDark,
 
-    tertiary = AmberWarning,
-    onTertiary = PureWhite,
-    tertiaryContainer = SoftGrey100,
-    onTertiaryContainer = AmberWarningDark,
+    tertiary             = GoldPendingDark,
+    onTertiary           = PureWhite,
+    tertiaryContainer    = SoftGrey100,
+    onTertiaryContainer  = GoldPendingDark,
 
-    error = VividRose,
-    onError = PureWhite,
-    errorContainer = SoftGrey100,
-    onErrorContainer = VividRoseDark,
+    error             = CrimsonMismatch,
+    onError           = PureWhite,
+    errorContainer    = SoftGrey100,
+    onErrorContainer  = CrimsonMismatchDark,
 
-    background = SoftGrey50,
-    onBackground = DeepSlateBlue,
+    background   = SoftGrey50,
+    onBackground = NavyPrimary,
 
-    surface = PureWhite,
-    onSurface = DeepSlateBlue,
-    surfaceVariant = SoftGrey100,
+    surface          = PureWhite,
+    onSurface        = NavyPrimary,
+    surfaceVariant   = SoftGrey100,
     onSurfaceVariant = SlateBlue600,
 
-    outline = SoftGrey300,
+    outline        = SoftGrey300,
     outlineVariant = SoftGrey200
 )
 

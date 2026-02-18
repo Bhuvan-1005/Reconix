@@ -117,7 +117,7 @@ fun VendorDashboardScreen(
                             icon = Icons.Default.ShoppingCart,
                             value = 5,
                             label = "Open POs",
-                            accentColor = NeonCyan,
+                            accentColor = ElectricIndigo,
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
@@ -126,7 +126,7 @@ fun VendorDashboardScreen(
                             label = "Pending Payments",
                             prefix = "$",
                             suffix = "k",
-                            accentColor = NeonMint,
+                            accentColor = EmeraldMatch,
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -163,7 +163,7 @@ fun VendorDashboardScreen(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(20.dp),
-                containerColor = ElectricIndigo,
+                containerColor = EmeraldMatch,
                 contentColor = PureWhite,
                 shape = CircleShape
             ) {
@@ -181,7 +181,7 @@ fun VendorDashboardScreen(
                     .padding(20.dp)
                     .clickable(onClick = onNavigateToFinance),
                 shape = RoundedCornerShape(16.dp),
-                color = NeonCyan.copy(alpha = 0.15f),
+                color = ElectricIndigo.copy(alpha = 0.15f),
                 tonalElevation = 2.dp
             ) {
                 Row(
@@ -191,13 +191,13 @@ fun VendorDashboardScreen(
                     Icon(
                         Icons.Default.Assessment,
                         contentDescription = null,
-                        tint = NeonCyanLight,
+                        tint = ElectricIndigo,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
                         "Finance",
-                        color = NeonCyanLight,
+                        color = ElectricIndigo,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp
                     )
@@ -286,7 +286,7 @@ private fun AnimatedOrderCard(
             }
             .clickable(
                 interactionSource = interactionSource,
-                indication = ripple(color = ElectricIndigo),
+                indication = ripple(color = EmeraldMatch),
                 onClick = onClick
             )
     ) {
@@ -306,7 +306,7 @@ private fun AnimatedOrderCard(
                         fontFamily = FontFamily.Monospace
                     ),
                     fontWeight = FontWeight.SemiBold,
-                    color = NeonCyan
+                    color = ElectricIndigo
                 )
                 StatusBadge(status = order.status)
             }
@@ -331,7 +331,7 @@ private fun AnimatedOrderCard(
                         fontFamily = FontFamily.Monospace
                     ),
                     fontWeight = FontWeight.Bold,
-                    color = NeonMint
+                    color = EmeraldMatch
                 )
                 Text(
                     text = order.date,
