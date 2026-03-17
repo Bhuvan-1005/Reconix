@@ -17,3 +17,39 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+
+# ─── Secrets & Environment ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.env
+
+# ─── Python ─────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+venv/
+.venv/
+env/
+ENV/
+.eggs/
+*.egg-info/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# ─── Uploads / user data ────────────────────────────────────────
+python_server/uploads/
+
+# ─── Keystore / signing ─────────────────────────────────────────
+*.keystore
+!debug.keystore
+*.jks
