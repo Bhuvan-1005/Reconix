@@ -19,16 +19,18 @@ sealed class Screen {
     data object Login : Screen()
     data object VendorDashboard : Screen()
     data object CreatePO : Screen()
-    data object VendorSubmit : Screen()
+    data class VendorSubmit(val poId: String) : Screen()
     data object FinanceDashboard : Screen()
     data object FinanceReview : Screen()
     data object InvoiceUpload : Screen()
     data class ThreeWayMatch(val invoiceId: String) : Screen()
+    data object AdminDashboard : Screen()
+    data object UserProfile : Screen()
 }
 
 @Composable
 fun App(
-    onRequestFilePick: ((fileName: String) -> Unit) -> Unit = { _ -> }
+    onRequestFilePick: ((fileName: String, bytes: ByteArray) -> Unit) -> Unit = { _ -> }
 ) {
     ReconixTheme {
         Surface(
@@ -49,14 +51,18 @@ fun App(
                         // Route based on role
                         currentScreen = when (AuthManager.currentRole) {
                             "FINANCE_MANAGER" -> Screen.FinanceDashboard
+                            "ADMIN" -> Screen.AdminDashboard
                             else -> Screen.VendorDashboard
                         }
                     } else {
                         LoginScreen(
                             onLoginSuccess = { username ->
-                                AuthManager.login(username)
+                                // AuthManager.login() is already called inside performLogin
+                                // (with the JWT token and server role) before onLoginSuccess fires.
+                                // We only need to navigate here.
                                 currentScreen = when (AuthManager.currentRole) {
                                     "FINANCE_MANAGER" -> Screen.FinanceDashboard
+                                    "ADMIN" -> Screen.AdminDashboard
                                     else -> Screen.VendorDashboard
                                 }
                             }
@@ -65,46 +71,17 @@ fun App(
                 }
 
                 is Screen.VendorDashboard -> {
-                    VendorDashboardScreen(
+                    VendorPortalScreen(
                         vendorName = AuthManager.currentUser ?: "Vendor",
-                        onProfileClick = {
-                            AuthManager.logout()
-                            currentScreen = Screen.Login
+                        onOrderClick = { poId ->
+                            currentScreen = Screen.VendorSubmit(poId)
                         },
-                        onLogout = {
-                            AuthManager.logout()
-                            currentScreen = Screen.Login
+                        onCreateInvoice = {
+                            currentScreen = Screen.VendorSubmit("")
                         },
-                        onOrderClick = { poNumber ->
-                            currentScreen = Screen.VendorSubmit
+                        onUploadInvoice = {
+                            currentScreen = Screen.InvoiceUpload
                         },
-                        onCreatePO = {
-                            currentScreen = Screen.CreatePO
-                        },
-                        onNavigateToFinance = {
-                            currentScreen = Screen.FinanceDashboard
-                        }
-                    )
-                }
-
-                is Screen.VendorSubmit -> {
-                    VendorSubmitScreen(
-                        onBack = { currentScreen = Screen.VendorDashboard },
-                        onSubmit = { invoiceNumber, amount ->
-                            println("Submitted: $invoiceNumber, Amount: $amount")
-                            currentScreen = Screen.VendorDashboard
-                        }
-                    )
-                }
-
-                is Screen.CreatePO -> {
-                    CreatePOScreen(
-                        onBack = { currentScreen = Screen.VendorDashboard }
-                    )
-                }
-
-                is Screen.FinanceDashboard -> {
-                    FinanceDashboard(
                         onInvoiceClick = { invoiceId ->
                             currentScreen = Screen.ThreeWayMatch(invoiceId)
                         },
@@ -112,11 +89,50 @@ fun App(
                             AuthManager.logout()
                             currentScreen = Screen.Login
                         },
-                        onUploadInvoice = {
-                            currentScreen = Screen.InvoiceUpload
+                        onNavigateToProfile = {
+                            currentScreen = Screen.UserProfile
                         },
-                        onNavigateToVendor = {
+                        onBack = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
+                        }
+                    )
+                }
+
+                is Screen.VendorSubmit -> {
+                    VendorSubmitScreen(
+                        poId = screen.poId,
+                        onBack = { currentScreen = Screen.VendorDashboard },
+                        onSubmit = { _, _ ->
                             currentScreen = Screen.VendorDashboard
+                        }
+                    )
+                }
+
+                is Screen.CreatePO -> {
+                    CreatePOScreen(
+                        onBack = { currentScreen = Screen.FinanceDashboard }
+                    )
+                }
+
+                is Screen.FinanceDashboard -> {
+                    FinancePortalScreen(
+                        onInvoiceClick = { invoiceId ->
+                            currentScreen = Screen.ThreeWayMatch(invoiceId)
+                        },
+                        onCreatePO = {
+                            currentScreen = Screen.CreatePO
+                        },
+                        onLogout = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
+                        },
+                        onNavigateToProfile = {
+                            currentScreen = Screen.UserProfile
+                        },
+                        onBack = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
                         }
                     )
                 }
@@ -136,8 +152,12 @@ fun App(
                 }
 
                 is Screen.InvoiceUpload -> {
+                    val uploadBackScreen = when (AuthManager.currentRole) {
+                        "FINANCE_MANAGER" -> Screen.FinanceDashboard
+                        else              -> Screen.VendorDashboard
+                    }
                     InvoiceUploadScreen(
-                        onBack = { currentScreen = Screen.FinanceDashboard },
+                        onBack = { currentScreen = uploadBackScreen },
                         onRequestFilePick = onRequestFilePick
                     )
                 }
@@ -154,6 +174,34 @@ fun App(
                             currentScreen = Screen.FinanceDashboard
                         },
                         onBack = { currentScreen = Screen.FinanceDashboard }
+                    )
+                }
+
+                is Screen.AdminDashboard -> {
+                    AdminDashboardScreen(
+                        onLogout = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
+                        },
+                        onNavigateToProfile = {
+                            currentScreen = Screen.UserProfile
+                        }
+                    )
+                }
+
+                is Screen.UserProfile -> {
+                    // Navigate back to the appropriate dashboard based on role
+                    val backScreen = when (AuthManager.currentRole) {
+                        "FINANCE_MANAGER" -> Screen.FinanceDashboard
+                        "ADMIN" -> Screen.AdminDashboard
+                        else -> Screen.VendorDashboard
+                    }
+                    UserProfileScreen(
+                        onBack = { currentScreen = backScreen },
+                        onLogout = {
+                            AuthManager.logout()
+                            currentScreen = Screen.Login
+                        }
                     )
                 }
             }

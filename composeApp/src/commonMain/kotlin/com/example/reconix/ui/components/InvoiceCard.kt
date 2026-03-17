@@ -25,9 +25,9 @@ import com.example.reconix.utils.formatCurrency
 import com.example.reconix.ui.theme.*
 
 // ─── private design tokens ──────────────────────────────────────────────────
-private val NavyCard     = Color(0xFF0D1B3E)
-private val NavySurface  = Color(0xFF112048)
-private val NavyBorder   = Color(0xFF1A3066)
+private val NavyCard     = Color(0xFF1A1A1A)
+private val NavySurface  = Color(0xFF222222)
+private val NavyBorder   = Color(0xFF333333)
 private val RoyalBlue    = Color(0xFF4F7FFF)
 private val Emerald      = Color(0xFF00C896)
 private val Crimson      = Color(0xFFFF2D5B)

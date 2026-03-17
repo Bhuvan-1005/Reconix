@@ -41,10 +41,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 // ── Design tokens (local — avoids import from theme package) ─
-private val NavyDeep    = Color(0xFF060E20)
-private val NavyCard    = Color(0xFF0D1B3E)
+private val NavyDeep    = Color(0xFF000000)
+private val NavyCard    = Color(0xFF0D0D0D)
 private val NavyBorder  = Color(0xFF1A3066)
 private val RoyalBlue   = Color(0xFF4F7FFF)
 private val RoyalLight  = Color(0xFF7EA9FF)
@@ -97,14 +96,14 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
     // ── Shared field styling ─────────────────────────────────
     val fieldShape  = RoundedCornerShape(16.dp)
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor    = RoyalBlue,
-        unfocusedBorderColor  = NavyBorder,
-        focusedLabelColor     = RoyalBlue,
+        focusedBorderColor    = EmeraldAccent,
+        unfocusedBorderColor  = Color(0xFF2A2A2A),
+        focusedLabelColor     = EmeraldAccent,
         unfocusedLabelColor   = MutedLabel,
-        cursorColor           = RoyalBlue,
-        focusedLeadingIconColor   = RoyalBlue,
+        cursorColor           = EmeraldAccent,
+        focusedLeadingIconColor   = EmeraldAccent,
         unfocusedLeadingIconColor = MutedLabel,
-        focusedTrailingIconColor  = RoyalBlue,
+        focusedTrailingIconColor  = EmeraldAccent,
         unfocusedTrailingIconColor= MutedLabel,
         focusedTextColor      = WhiteLabel,
         unfocusedTextColor    = SilverLabel,
@@ -116,15 +115,8 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to NavyDeep,
-                        0.4f to Color(0xFF0A1530),
-                        1.0f to NavyDeep
-                    )
-                )
-            ),
+            .background(Color(0xFF000000)),
+        // pure black root
         contentAlignment = Alignment.Center
     ) {
 
@@ -134,9 +126,9 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                 .size(400.dp)
                 .align(Alignment.TopCenter)
                 .offset(y = (-80).dp)
-                .alpha(glowAlpha)
+                .alpha(glowAlpha * 0.5f)
                 .blur(100.dp)
-                .background(RoyalBlue, CircleShape)
+                .background(EmeraldAccent, CircleShape)
         )
         // Ambient glow orb (bottom)
         Box(
@@ -162,20 +154,13 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            listOf(
-                                Color(0xFF0D1B3E).copy(alpha = 0.95f),
-                                Color(0xFF060E20).copy(alpha = 0.98f)
-                            )
-                        )
-                    )
-                    // Luminous top border line effect
+                    .background(Color(0xFF0A0A0A))
+                    // Luminous top border line effect — emerald
                     .then(
                         Modifier.background(
                             Brush.verticalGradient(
                                 listOf(
-                                    Color(0x334F7FFF),
+                                    EmeraldAccent.copy(alpha = 0.30f),
                                     Color.Transparent
                                 ),
                                 endY = 2f
@@ -186,48 +171,41 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
+                        .padding(horizontal = 24.dp, vertical = 36.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
 
                     // ── Logo ──────────────────────────────
                     Box(contentAlignment = Alignment.Center) {
-                        // Outer glow
+                        // Outer glow — emerald
                         Box(
                             modifier = Modifier
                                 .size(96.dp)
-                                .alpha(0.20f)
+                                .alpha(0.25f)
                                 .blur(20.dp)
                                 .background(
-                                    Brush.radialGradient(listOf(RoyalBlue, Color.Transparent)),
+                                    Brush.radialGradient(listOf(EmeraldAccent, Color.Transparent)),
                                     CircleShape
                                 )
                         )
                         Surface(
                             modifier = Modifier.size(80.dp),
                             shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFF122250),
+                            color = Color(0xFF111111),
                             tonalElevation = 0.dp
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(
-                                        Brush.linearGradient(
-                                            listOf(
-                                                Color(0xFF1A3A80).copy(alpha = 0.7f),
-                                                Color(0xFF0D1B3E)
-                                            )
-                                        )
-                                    ),
+                                    .background(Color(0xFF0A0A0A)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
                                     contentDescription = "App Logo",
                                     modifier = Modifier.size(32.dp),
-                                    tint = RoyalBlue
+                                    tint = EmeraldAccent
                                 )
                             }
                         }
@@ -276,8 +254,7 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                             Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(20.dp))
                         },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
+                            .fillMaxWidth(),
                         shape = fieldShape,
                         colors = fieldColors,
                         singleLine = true,
@@ -312,8 +289,7 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
+                            .fillMaxWidth(),
                         shape = fieldShape,
                         colors = fieldColors,
                         singleLine = true,
@@ -433,7 +409,7 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // ── Divider ───────────────────────────
                     Row(
@@ -441,10 +417,10 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = NavyBorder)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = EmeraldAccent.copy(alpha = 0.20f))
                         Text("DEMO", fontSize = 10.sp, color = MutedLabel, letterSpacing = 2.sp,
                             fontWeight = FontWeight.Bold)
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = NavyBorder)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = EmeraldAccent.copy(alpha = 0.20f))
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -455,9 +431,9 @@ fun LoginScreen(onLoginSuccess: (username: String) -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(
-                            Pair("vendor", "Vendor Portal"),
-                            Pair("admin", "Finance Manager"),
-                            Pair("demo", "Demo User")
+                            Pair("finance", "Finance Manager"),
+                            Pair("vendor",  "Vendor"),
+                            Pair("admin",   "Admin")
                         ).forEach { (user, label) ->
                             DemoCredentialRow(
                                 username = user,
@@ -494,7 +470,7 @@ private fun DemoCredentialRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF122250),
+        color = Color(0xFF111111),
         onClick = onClick
     ) {
         Row(
@@ -513,7 +489,7 @@ private fun DemoCredentialRow(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF1A3066))
+                    .background(Color(0xFF1A1A1A))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
@@ -550,7 +526,15 @@ private fun performLogin(
 
                 result.onSuccess { loginResponse ->
                     if (loginResponse.success) {
-                        onSuccess(username)
+                        // Store JWT token and server-authoritative role in AuthManager
+                        // before navigating, so every subsequent API call includes the
+                        // Authorization: Bearer <token> header.
+                        com.example.reconix.auth.AuthManager.login(
+                            username   = loginResponse.user?.username ?: username,
+                            jwtToken   = loginResponse.token,
+                            serverRole = loginResponse.user?.role,
+                        )
+                        onSuccess(loginResponse.user?.username ?: username)
                     } else {
                         onError(loginResponse.message)
                     }

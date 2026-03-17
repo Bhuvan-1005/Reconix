@@ -6,7 +6,9 @@ import androidx.compose.runtime.setValue
 
 /**
  * Authentication State Manager
- * Manages user authentication state across the app
+ * Manages user authentication state across the app.
+ * The JWT token returned by the server is stored here and injected into
+ * every subsequent HTTP request as an `Authorization: Bearer <token>` header.
  */
 object AuthManager {
 
@@ -20,43 +22,63 @@ object AuthManager {
         private set
 
     /**
-     * Log in the user
+     * JWT access token returned by /auth/login.
+     * Exposed so InvoiceRepository can add it to request headers.
      */
-    fun login(username: String) {
+    var token by mutableStateOf<String?>(null)
+        private set
+
+    /**
+     * Log in the user.
+     *
+     * @param username  Authenticated username.
+     * @param jwtToken  JWT access token from the server (optional for backward compat).
+     * @param serverRole Role string from the server UserDTO (e.g. "FINANCE_MANAGER").
+     *                   Falls back to username-based heuristic when null.
+     */
+    fun login(
+        username: String,
+        jwtToken: String? = null,
+        serverRole: String? = null,
+    ) {
         isAuthenticated = true
         currentUser = username
-        userRole = determineRole(username)
+        token = jwtToken
+        userRole = serverRole?.let { parseServerRole(it) } ?: determineRole(username)
     }
 
     /**
-     * Log out the user
+     * Log out the user and clear all auth state.
      */
     fun logout() {
         isAuthenticated = false
         currentUser = null
+        token = null
         userRole = UserRole.VENDOR
     }
 
-    /**
-     * Determine user role based on username
-     */
-    private fun determineRole(username: String): UserRole {
-        return when (username.lowercase()) {
-            "admin" -> UserRole.ADMIN
-            "finance" -> UserRole.FINANCE_MANAGER
-            "vendor" -> UserRole.VENDOR
-            else -> UserRole.VENDOR
-        }
+    /** Parse the role string returned by the server into a [UserRole]. */
+    private fun parseServerRole(role: String): UserRole = when (role.uppercase()) {
+        "ADMIN"            -> UserRole.ADMIN
+        "FINANCE_MANAGER"  -> UserRole.FINANCE_MANAGER
+        else               -> UserRole.VENDOR
     }
 
     /**
-     * Check if user has admin privileges
+     * Fallback role determination when the server did not provide a role.
+     * Kept for backward compatibility with the demo credential buttons.
      */
+    private fun determineRole(username: String): UserRole = when (username.lowercase()) {
+        "admin"   -> UserRole.ADMIN
+        "finance" -> UserRole.FINANCE_MANAGER
+        "vendor"  -> UserRole.VENDOR
+        else      -> UserRole.VENDOR
+    }
+
+    /** True when the user has admin privileges. */
     fun isAdmin(): Boolean = userRole == UserRole.ADMIN
 
-    /**
-     * Get current role as string for navigation
-     */
+    /** Current role as plain string, used for navigation decisions. */
     val currentRole: String get() = userRole.name
 }
 

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,6 +34,7 @@ import com.example.reconix.viewmodel.VendorViewModel
 import com.example.reconix.viewmodel.CreatePOState
 import com.example.reconix.shared.CreatePOLineItem
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.BackHandler
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -56,6 +58,7 @@ fun CreatePOScreen(
 ) {
     var vendorName by remember { mutableStateOf("") }
     var vendorEmail by remember { mutableStateOf("") }
+    BackHandler { onBack() }
     var lineItems by remember { mutableStateOf(listOf(LineItemForm())) }
     var showSuccess by remember { mutableStateOf(false) }
     var successPoId by remember { mutableStateOf("") }
@@ -96,14 +99,15 @@ fun CreatePOScreen(
     }
     val grandTotal = subtotal + taxTotal
 
+    val isDark = LocalIsDarkTheme.current
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(DeepSlateBlue, SlateBlue800, DeepSlateBlue)
-                )
+                if (isDark) Color.Black else Color(0xFFF2F4F8)
             )
+            .statusBarsPadding()
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -139,7 +143,7 @@ fun CreatePOScreen(
                                 "Vendor Details",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = PureWhite
+                                color = if (isDark) Color.White else Color.Black
                             )
                         }
 
@@ -180,7 +184,7 @@ fun CreatePOScreen(
                             "Line Items",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (isDark) Color.White else Color.Black
                         )
                         Spacer(Modifier.width(8.dp))
                         Surface(
@@ -258,9 +262,9 @@ fun CreatePOScreen(
                             icon = Icons.Default.Description
                         )
 
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             FuturisticTextField(
                                 value = item.quantity,
@@ -272,7 +276,7 @@ fun CreatePOScreen(
                                 label = "Qty",
                                 icon = Icons.Default.Numbers,
                                 keyboardType = KeyboardType.Number,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             )
 
                             FuturisticTextField(
@@ -285,7 +289,7 @@ fun CreatePOScreen(
                                 label = "Unit Price",
                                 icon = Icons.Default.AttachMoney,
                                 keyboardType = KeyboardType.Decimal,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             )
 
                             FuturisticTextField(
@@ -298,7 +302,7 @@ fun CreatePOScreen(
                                 label = "Tax %",
                                 icon = Icons.Default.Percent,
                                 keyboardType = KeyboardType.Decimal,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
 
@@ -337,7 +341,7 @@ fun CreatePOScreen(
                                 "Order Summary",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = PureWhite
+                                color = if (isDark) Color.White else Color.Black
                             )
                         }
 
@@ -347,7 +351,7 @@ fun CreatePOScreen(
                         TotalRow("Tax", taxTotal)
 
                         HorizontalDivider(
-                            color = GlassBorder,
+                            color = if (isDark) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f),
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
 
@@ -357,13 +361,13 @@ fun CreatePOScreen(
                         ) {
                             Text(
                                 "Grand Total",
-                                color = PureWhite,
+                                color = if (isDark) Color.White else Color.Black,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp
                             )
                             Text(
                                 "$${String.format("%.2f", grandTotal)}",
-                                color = NeonCyanLight,
+                                color = if (isDark) Color.White else Color.Black,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 20.sp
                             )
@@ -410,19 +414,19 @@ fun CreatePOScreen(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = ElectricIndigo,
-                            disabledContainerColor = SlateBlue600
+                            disabledContainerColor = Color(0xFF333333)
                         )
                     ) {
                         if (isSubmitting) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = PureWhite,
+                                color = Color.White,
                                 strokeWidth = 2.dp
                             )
                             Spacer(Modifier.width(12.dp))
                             Text("Creating PO...", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         } else {
-                            Icon(Icons.Default.Send, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                             Spacer(Modifier.width(12.dp))
                             Text("Create Purchase Order", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
@@ -452,7 +456,7 @@ fun CreatePOScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(DeepSlateBlue.copy(alpha = 0.9f)),
+                    .background(if (LocalIsDarkTheme.current) Color.Black.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.9f)),
                 contentAlignment = Alignment.Center
             ) {
                 GlassCard {
@@ -471,7 +475,7 @@ fun CreatePOScreen(
                             "Purchase Order Created!",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                         )
                         Text(
                             successPoId,
@@ -482,7 +486,7 @@ fun CreatePOScreen(
                         Text(
                             successMessage,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = CoolGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                         Spacer(Modifier.height(8.dp))
@@ -508,6 +512,7 @@ fun CreatePOScreen(
 // ── Header Composable ────────────────────────────────────────
 @Composable
 private fun CreatePOHeader(onBack: () -> Unit) {
+    val isDark = LocalIsDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -519,12 +524,12 @@ private fun CreatePOHeader(onBack: () -> Unit) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(GlassWhite5)
+                .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f))
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = PureWhite
+                tint = if (isDark) Color.White else Color.Black
             )
         }
 
@@ -535,12 +540,12 @@ private fun CreatePOHeader(onBack: () -> Unit) {
                 "Create Purchase Order",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                color = PureWhite
+                color = if (isDark) Color.White else Color.Black
             )
             Text(
                 "Fill in vendor & item details",
                 style = MaterialTheme.typography.bodySmall,
-                color = CoolGray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -556,24 +561,25 @@ fun FuturisticTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalIsDarkTheme.current
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, color = CoolGray, fontSize = 12.sp) },
+        label = { Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) },
         leadingIcon = {
-            Icon(icon, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = if (isDark) Color.White.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
         },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         singleLine = true,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = ElectricIndigo,
-            unfocusedBorderColor = GlassBorder,
-            focusedTextColor = PureWhite,
-            unfocusedTextColor = CoolGray,
-            cursorColor = NeonCyan,
-            focusedContainerColor = GlassWhite5,
+            focusedBorderColor = if (isDark) Color.White else Color.Black,
+            unfocusedBorderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.12f),
+            focusedTextColor = if (isDark) Color.White else Color.Black,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            cursorColor = if (isDark) Color.White else Color.Black,
+            focusedContainerColor = if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.03f),
             unfocusedContainerColor = Color.Transparent
         )
     )
@@ -586,10 +592,10 @@ private fun TotalRow(label: String, amount: Double) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = CoolGray, fontSize = 14.sp)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         Text(
             "$${String.format("%.2f", amount)}",
-            color = PureWhite,
+            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
             fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp
         )

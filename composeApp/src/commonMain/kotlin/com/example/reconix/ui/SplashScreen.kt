@@ -30,11 +30,15 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.geometry.Size
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
-// ── Brand Colors — deep navy fintech palette ─────────────────
-private val MidnightNavy  = Color(0xFF060E20)
-private val NavyCard       = Color(0xFF0D1B3E)
-private val NavyBorder     = Color(0xFF1A3066)
+// ── Brand Colors — pure black palette ──────────────────────
+private val MidnightNavy  = Color(0xFF000000)
+private val NavyCard       = Color(0xFF0D0D0D)
+private val NavyBorder     = Color(0xFF1A1A1A)
 private val RoyalBlue      = Color(0xFF4F7FFF)
 private val RoyalBlueLight = Color(0xFF7EA9FF)
 private val EmeraldGreen   = Color(0xFF00C896)
@@ -65,6 +69,7 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
     val textOffset  = remember { Animatable(32f) }
     val subAlpha    = remember { Animatable(0f) }
     val circuitAlpha= remember { Animatable(0f) }
+    val progressWidth = remember { Animatable(0f) }  // 0 → 1 for loading bar
 
     // Infinite pulsing glow behind logo
     val glowPulse by rememberInfiniteTransition(label = "glow").animateFloat(
@@ -88,15 +93,80 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
         label = "ringScale"
     )
 
+    // ── Live effect animations ────────────────────────────────
+    val liveTransition = rememberInfiniteTransition(label = "live")
+
+    // Horizontal scan line sweeping top → bottom
+    val scanY by liveTransition.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing)),
+        label = "scan"
+    )
+    // Orbit angle for dots circling the logo (0→360°)
+    val orbitAngle by liveTransition.animateFloat(
+        initialValue = 0f, targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(3600, easing = LinearEasing)),
+        label = "orbit"
+    )
+    // Upward-drifting particles at different speeds and horizontal positions
+    val p1y by liveTransition.animateFloat(
+        initialValue = 1.15f, targetValue = -0.15f,
+        animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing)),
+        label = "p1y"
+    )
+    val p2y by liveTransition.animateFloat(
+        initialValue = 1.15f, targetValue = -0.15f,
+        animationSpec = infiniteRepeatable(
+            tween(3400, easing = LinearEasing),
+            initialStartOffset = StartOffset(900)
+        ),
+        label = "p2y"
+    )
+    val p3y by liveTransition.animateFloat(
+        initialValue = 1.15f, targetValue = -0.15f,
+        animationSpec = infiniteRepeatable(
+            tween(2200, easing = LinearEasing),
+            initialStartOffset = StartOffset(1600)
+        ),
+        label = "p3y"
+    )
+    val p4y by liveTransition.animateFloat(
+        initialValue = 1.15f, targetValue = -0.15f,
+        animationSpec = infiniteRepeatable(
+            tween(3100, easing = LinearEasing),
+            initialStartOffset = StartOffset(400)
+        ),
+        label = "p4y"
+    )
+    val p5y by liveTransition.animateFloat(
+        initialValue = 1.15f, targetValue = -0.15f,
+        animationSpec = infiniteRepeatable(
+            tween(2600, easing = LinearEasing),
+            initialStartOffset = StartOffset(1200)
+        ),
+        label = "p5y"
+    )
+    // Subtle data-node flicker for circuit dots
+    val nodeFlicker by liveTransition.animateFloat(
+        initialValue = 0.35f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(500), RepeatMode.Reverse),
+        label = "flicker"
+    )
+
     LaunchedEffect(Unit) {
-        // 1. Logo springs in
-        logoScale.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMediumLow
-            )
-        )
+        // 1. Logo springs in (run progress bar in parallel)
+        coroutineScope {
+            launch {
+                logoScale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+            }
+            launch { progressWidth.animateTo(1f, tween(2400, easing = LinearEasing)) }
+        }
         // 2. Circuit lines fade in
         launch { circuitAlpha.animateTo(1f, tween(500)) }
         delay(250)
@@ -112,7 +182,7 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
         subAlpha.animateTo(1f, tween(500))
 
         // 5. Hold then navigate
-        delay(1000L)
+        delay(700L)
         onSplashComplete()
     }
 
@@ -120,15 +190,7 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to MidnightNavy,
-                        0.5f to Color(0xFF0A1530),
-                        1.0f to Color(0xFF060E20)
-                    )
-                )
-            ),
+            .background(Color(0xFF000000)),
         contentAlignment = Alignment.Center
     ) {
 
@@ -141,14 +203,90 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
                 .blur(80.dp)
                 .background(RoyalBlue, CircleShape)
         )
+        // ── Live background: dot grid + scan line + rising particles ─
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
 
+            // Subtle dot grid (every 44dp)
+            val grid = 44.dp.toPx()
+            var gx = grid / 2
+            while (gx < w) {
+                var gy = grid / 2
+                while (gy < h) {
+                    drawCircle(
+                        color = Color(0xFF0D1B3E),
+                        radius = 1.2f,
+                        center = androidx.compose.ui.geometry.Offset(gx, gy)
+                    )
+                    gy += grid
+                }
+                gx += grid
+            }
+
+            // Scanning glow band
+            val sy = scanY * h
+            val scanGradient = androidx.compose.ui.graphics.Brush.verticalGradient(
+                listOf(
+                    Color.Transparent,
+                    EmeraldGreen.copy(alpha = 0.07f),
+                    EmeraldGreen.copy(alpha = 0.14f),
+                    EmeraldGreen.copy(alpha = 0.07f),
+                    Color.Transparent
+                ),
+                startY = sy - 60f,
+                endY   = sy + 60f
+            )
+            drawRect(
+                brush = scanGradient,
+                topLeft = androidx.compose.ui.geometry.Offset(0f, sy - 60f),
+                size = Size(w, 120f)
+            )
+            // Bright leading edge
+            drawLine(
+                color = EmeraldGreen.copy(alpha = 0.30f),
+                start = androidx.compose.ui.geometry.Offset(0f, sy),
+                end   = androidx.compose.ui.geometry.Offset(w, sy),
+                strokeWidth = 1f
+            )
+
+            // Rising particles with tails
+            data class Particle(val xFraction: Float, val yValue: Float, val color: Color)
+            val particles = listOf(
+                Particle(0.12f, p1y, EmeraldGreen),
+                Particle(0.31f, p2y, NeonCyan),
+                Particle(0.54f, p3y, EmeraldGreen),
+                Particle(0.73f, p4y, RoyalBlue),
+                Particle(0.88f, p5y, NeonCyan),
+            )
+            particles.forEach { p ->
+                val px = p.xFraction * w
+                val py = p.yValue * h
+                val alpha = when {
+                    p.yValue < 0.08f -> ((p.yValue + 0.15f) * 4f).coerceIn(0f, 0.75f)
+                    p.yValue > 0.88f -> ((1.15f - p.yValue) * 4f).coerceIn(0f, 0.75f)
+                    else -> 0.75f
+                }
+                // Tail
+                drawLine(
+                    color = p.color.copy(alpha = alpha * 0.25f),
+                    start = androidx.compose.ui.geometry.Offset(px, py + 22f),
+                    end   = androidx.compose.ui.geometry.Offset(px, py + 4f),
+                    strokeWidth = 1.5f,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+                // Core dot
+                drawCircle(p.color.copy(alpha = alpha), radius = 2.8f,
+                    center = androidx.compose.ui.geometry.Offset(px, py))
+            }
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
 
-            // ── Logo Container: 3D Glassmorphism Card ───────
+            // ── Logo Container: 3D Glassmorphism Card + Orbit ─
             Box(contentAlignment = Alignment.Center) {
 
                 // Outer glow ring
@@ -159,6 +297,40 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
                         .blur(24.dp)
                         .background(EmeraldGreen, CircleShape)
                 )
+
+                // Orbiting dots around the logo card
+                Canvas(
+                    modifier = Modifier
+                        .size(180.dp)
+                        .alpha(logoScale.value)
+                ) {
+                    val cx = size.width / 2
+                    val cy = size.height / 2
+                    val r  = size.width / 2 - 6.dp.toPx()
+                    val a  = (orbitAngle * PI / 180.0).toFloat()
+                    // Three equidistant orbit dots
+                    listOf(
+                        Triple(EmeraldGreen,      5.5f, a),
+                        Triple(NeonCyan,          4f,   a + (2f * PI / 3).toFloat()),
+                        Triple(RoyalBlueLight,    3.5f, a + (4f * PI / 3).toFloat()),
+                    ).forEach { (color, radius, angle) ->
+                        drawCircle(
+                            color  = color.copy(alpha = 0.9f),
+                            radius = radius,
+                            center = androidx.compose.ui.geometry.Offset(
+                                cx + r * cos(angle),
+                                cy + r * sin(angle)
+                            )
+                        )
+                    }
+                    // Faint orbit ring
+                    drawCircle(
+                        color  = EmeraldGreen.copy(alpha = 0.12f),
+                        radius = r,
+                        center = androidx.compose.ui.geometry.Offset(cx, cy),
+                        style  = androidx.compose.ui.graphics.drawscope.Stroke(width = 1f)
+                    )
+                }
 
                 // Glass card backing
                 Surface(
@@ -173,8 +345,8 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
                             .background(
                                 Brush.linearGradient(
                                     listOf(
-                                        Color(0xFF1A3066).copy(alpha = 0.6f),
-                                        Color(0xFF0D1B3E).copy(alpha = 0.9f)
+                                        Color(0xFF111111).copy(alpha = 0.6f),
+                                        Color(0xFF000000).copy(alpha = 0.9f)
                                     )
                                 )
                             ),
@@ -201,7 +373,7 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
                             drawPath(
                                 path = docPath,
                                 brush = Brush.linearGradient(
-                                    listOf(Color(0xFF1A3A80), Color(0xFF0D1B3E)),
+                                    listOf(Color(0xFF1A1A1A), Color(0xFF000000)),
                                     start = Offset(0f, 0f),
                                     end = Offset(w, h)
                                 ),
@@ -319,7 +491,44 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
                 letterSpacing = 3.sp,
                 modifier = Modifier.alpha(subAlpha.value)
             )
-        }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // ── Animated loading progress bar ─────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.55f)
+                    .height(2.dp)
+                    .clip(RoundedCornerShape(1.dp))
+                    .background(Color(0xFF0D1B3E))
+                    .alpha(subAlpha.value)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progressWidth.value)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(EmeraldGreen, NeonCyan)
+                            )
+                        )
+                )
+                // Glowing head of the progress bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progressWidth.value)
+                        .fillMaxHeight()
+                        .alpha(glowPulse * 0.7f)
+                        .blur(4.dp)
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(Color.Transparent, EmeraldGreen)
+                            )
+                        )
+                )
+            }
+
+        } // end Column
 
         // ── Pulsing FAB-style dot at bottom ─────────────────
         Box(

@@ -14,3 +14,5 @@ actual fun createPlatformHttpClient(): HttpClient {
     }
 }
 
+actual fun platformBaseUrl(): String = "http://localhost:8081"
+

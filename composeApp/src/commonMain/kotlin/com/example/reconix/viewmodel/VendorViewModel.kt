@@ -46,6 +46,16 @@ sealed class CreatePOState {
 }
 
 /**
+ * State for simple invoice submission from VendorSubmitScreen
+ */
+sealed class InvoiceSubmitState {
+    data object Idle : InvoiceSubmitState()
+    data object Submitting : InvoiceSubmitState()
+    data class Success(val result: ValidationResult) : InvoiceSubmitState()
+    data class Error(val message: String) : InvoiceSubmitState()
+}
+
+/**
  * Vendor ViewModel - Manages state for the Vendor Dashboard
  * Uses shared DTOs for type-safe communication
  */
@@ -64,6 +74,17 @@ class VendorViewModel : ViewModel() {
 
     private val _createPOState = MutableStateFlow<CreatePOState>(CreatePOState.Idle)
     val createPOState: StateFlow<CreatePOState> = _createPOState.asStateFlow()
+
+    // ── Single-PO detail for VendorSubmitScreen ───────────────────────────────
+
+    private val _selectedPurchaseOrder = MutableStateFlow<PurchaseOrderDTO?>(null)
+    val selectedPurchaseOrder: StateFlow<PurchaseOrderDTO?> = _selectedPurchaseOrder.asStateFlow()
+
+    // ── Simple invoice submission ─────────────────────────────────────────────
+
+    private val _invoiceSubmitState =
+        MutableStateFlow<InvoiceSubmitState>(InvoiceSubmitState.Idle)
+    val invoiceSubmitState: StateFlow<InvoiceSubmitState> = _invoiceSubmitState.asStateFlow()
 
     init {
         loadPurchaseOrders()
@@ -270,6 +291,69 @@ class VendorViewModel : ViewModel() {
      */
     fun resetCreatePOState() {
         _createPOState.value = CreatePOState.Idle
+    }
+
+    /**
+     * Load a single Purchase Order by its ID (used by VendorSubmitScreen to show PO details).
+     */
+    fun loadPurchaseOrderById(poId: String) {
+        viewModelScope.launch {
+            repository.getPurchaseOrderById(poId)
+                .onSuccess { po -> _selectedPurchaseOrder.value = po }
+                .onFailure { /* silently fail — screen shows empty state */ }
+        }
+    }
+
+    /**
+     * Clears the cached selected purchase order (call on screen exit).
+     */
+    fun clearSelectedPurchaseOrder() {
+        _selectedPurchaseOrder.value = null
+    }
+
+    /**
+     * Submit a single-line-item invoice against [poId].
+     * Used by VendorSubmitScreen where the user fills in qty and unit price for one item.
+     */
+    fun submitSimpleInvoice(
+        invoiceNumber: String,
+        poId: String,
+        quantity: Int,
+        unitPrice: Double
+    ) {
+        viewModelScope.launch {
+            _invoiceSubmitState.value = InvoiceSubmitState.Submitting
+            val invoice = InvoiceDTO(
+                id          = invoiceNumber,
+                poId        = poId,
+                vendorId    = "VENDOR-001",
+                totalAmount = quantity.toDouble() * unitPrice,
+                status      = InvoiceStatus.PENDING,
+                items       = listOf(
+                    InvoiceItemDTO(
+                        itemId    = "ITEM-001",
+                        quantity  = quantity,
+                        unitPrice = unitPrice
+                    )
+                )
+            )
+            repository.submitInvoice(invoice)
+                .onSuccess { result ->
+                    _invoiceSubmitState.value = InvoiceSubmitState.Success(result)
+                }
+                .onFailure { e ->
+                    _invoiceSubmitState.value = InvoiceSubmitState.Error(
+                        e.message ?: "Submission failed"
+                    )
+                }
+        }
+    }
+
+    /**
+     * Reset invoice submit state (call after handling the result).
+     */
+    fun resetInvoiceSubmitState() {
+        _invoiceSubmitState.value = InvoiceSubmitState.Idle
     }
 }
 

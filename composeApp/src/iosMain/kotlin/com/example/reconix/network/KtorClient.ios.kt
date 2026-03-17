@@ -16,3 +16,6 @@ actual fun createPlatformHttpClient(): HttpClient {
     }
 }
 
+/** iOS simulator on the same Mac can reach localhost directly. */
+actual fun platformBaseUrl(): String = "http://localhost:8081"
+

@@ -25,12 +25,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.reconix.ui.components.GlassCard
 import com.example.reconix.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.viewmodel.InvoiceSubmitState
+import com.example.reconix.viewmodel.VendorViewModel
+import com.example.reconix.BackHandler
 
 // ── Brand colors ────────────────────────────────────────────
 private val Indigo = Color(0xFF6366F1)
 private val IndigoFaded = Color(0xFF6366F1).copy(alpha = 0.4f)
 private val Slate = Color(0xFF64748B)
-private val MidnightBg = Color(0xFF0F172A)
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -47,18 +50,44 @@ private val MidnightBg = Color(0xFF0F172A)
  */
 @Composable
 fun VendorSubmitScreen(
-    poNumber: String = "PO-2026-0451",
-    expectedDate: String = "Feb 28, 2026",
+    poId: String = "",
     onBack: () -> Unit = {},
-    onSubmit: (invoiceNumber: String, amount: Double) -> Unit = { _, _ -> }
+    onSubmit: (invoiceNumber: String, amount: Double) -> Unit = { _, _ -> },
+    viewModel: VendorViewModel = viewModel { VendorViewModel() }
 ) {
+    val selectedPO by viewModel.selectedPurchaseOrder.collectAsState()
+    val invoiceSubmitState by viewModel.invoiceSubmitState.collectAsState()
+
+    // Load PO details when poId is available
+    LaunchedEffect(poId) {
+        if (poId.isNotEmpty()) viewModel.loadPurchaseOrderById(poId)
+    }
+
+    val displayPoNumber = selectedPO?.id ?: poId.ifEmpty { "—" }
+    val isSubmitting    = invoiceSubmitState is InvoiceSubmitState.Submitting
+
     var invoiceNumber by remember { mutableStateOf("") }
+    var submitError   by remember { mutableStateOf<String?>(null) }
+    BackHandler { onBack() }
+
+    // Handle submit state transitions
+    LaunchedEffect(invoiceSubmitState) {
+        when (val s = invoiceSubmitState) {
+            is InvoiceSubmitState.Success -> {
+                submitError = null
+                onSubmit(invoiceNumber, s.result.details?.sumOf { it.invoicePrice * it.invoiceQuantity } ?: 0.0)
+                viewModel.resetInvoiceSubmitState()
+            }
+            is InvoiceSubmitState.Error -> { submitError = s.message }
+            else -> { submitError = null }
+        }
+    }
+
     var description by remember { mutableStateOf("") }
-    var quantity by remember { mutableStateOf("") }
-    var unitPrice by remember { mutableStateOf("") }
-    var taxAmount by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
-    var isSubmitting by remember { mutableStateOf(false) }
+    var quantity    by remember { mutableStateOf("") }
+    var unitPrice   by remember { mutableStateOf("") }
+    var taxAmount   by remember { mutableStateOf("") }
+    var notes       by remember { mutableStateOf("") }
 
     // ── Dynamic total calculation ───────────────────────
     val qty = quantity.toDoubleOrNull() ?: 0.0
@@ -77,20 +106,23 @@ fun VendorSubmitScreen(
         unfocusedLeadingIconColor = Slate
     )
 
+    val isDarkVS = LocalIsDarkTheme.current
+
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(MidnightBg, Color(0xFF070E1B))
+        colors = if (isDarkVS) listOf(Color.Black, Color(0xFF0A0A0A)) else listOf(Color(0xFFF2F4F8), Color(0xFFE8EAEE))
     )
 
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
             Surface(
-                color = SlateBlue800.copy(alpha = 0.6f),
+                color = if (isDarkVS) Color(0xFF111111) else Color(0xFFFFFFFF),
                 tonalElevation = 4.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(horizontal = 8.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -98,14 +130,14 @@ fun VendorSubmitScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = PureWhite
+                            tint = if (isDarkVS) Color.White else Color.Black
                         )
                     }
                     Text(
                         text = "Submit Invoice",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = PureWhite
+                        color = if (isDarkVS) Color.White else Color.Black
                     )
                 }
             }
@@ -113,13 +145,25 @@ fun VendorSubmitScreen(
         bottomBar = {
             // ── Sticky Submit Button ────────────────────
             Surface(
-                color = SlateBlue800.copy(alpha = 0.8f),
+                color = if (isDarkVS) Color(0xFF111111) else Color(0xFFFFFFFF),
                 tonalElevation = 8.dp
             ) {
+                if (submitError != null) {
+                    Text(
+                        text = "⚠ $submitError",
+                        color = CrimsonMismatch,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)
+                    )
+                }
                 Button(
                     onClick = {
-                        isSubmitting = true
-                        onSubmit(invoiceNumber, total)
+                        viewModel.submitSimpleInvoice(
+                            invoiceNumber = invoiceNumber,
+                            poId          = poId.ifEmpty { selectedPO?.id ?: "" },
+                            quantity      = qty.toInt().coerceAtLeast(1),
+                            unitPrice     = price.coerceAtLeast(0.01)
+                        )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -175,38 +219,38 @@ fun VendorSubmitScreen(
                             Text(
                                 text = "Linked Purchase Order",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = CoolGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = poNumber,
+                                text = displayPoNumber,
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontFamily = FontFamily.Monospace
                                 ),
                                 fontWeight = FontWeight.Bold,
-                                color = NeonCyan
+                                color = if (isDarkVS) Color.White else Color.Black
                             )
                         }
                         Icon(
                             Icons.Default.Link,
                             contentDescription = null,
-                            tint = NeonCyan.copy(alpha = 0.6f),
+                            tint = if (isDarkVS) Color.White.copy(alpha = 0.5f) else Color.Black.copy(alpha = 0.5f),
                             modifier = Modifier.size(28.dp)
                         )
                     }
 
-                    HorizontalDivider(color = GlassBorder)
+                    HorizontalDivider(color = if (isDarkVS) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Expected Date", style = MaterialTheme.typography.labelSmall, color = CoolGray)
-                            Text(expectedDate, fontWeight = FontWeight.SemiBold, color = PureWhite)
+                            Text("Expected Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("—", fontWeight = FontWeight.SemiBold, color = if (isDarkVS) Color.White else Color.Black)
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Status", style = MaterialTheme.typography.labelSmall, color = CoolGray)
+                            Text("Status", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("OPEN", fontWeight = FontWeight.Bold, color = NeonMint)
                         }
                     }
@@ -220,7 +264,7 @@ fun VendorSubmitScreen(
                 text = "Invoice Details",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = PureWhite
+                color = if (isDarkVS) Color.White else Color.Black
             )
 
             OutlinedTextField(
@@ -253,7 +297,7 @@ fun VendorSubmitScreen(
                 text = "Line Item",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = PureWhite
+                color = if (isDarkVS) Color.White else Color.Black
             )
 
             Row(
@@ -326,28 +370,28 @@ fun VendorSubmitScreen(
                     Text(
                         text = "Total Calculation",
                         style = MaterialTheme.typography.labelMedium,
-                        color = CoolGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    HorizontalDivider(color = GlassBorder)
+                    HorizontalDivider(color = if (isDarkVS) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Subtotal (${qty.toInt()} × $${"%.2f".format(price)})", color = CoolGray, fontSize = 13.sp)
-                        Text("$${"%.2f".format(qty * price)}", color = PureWhite, fontWeight = FontWeight.SemiBold)
+                        Text("Subtotal (${qty.toInt()} × $${"%.2f".format(price)})", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("$${"%.2f".format(qty * price)}", color = if (isDarkVS) Color.White else Color.Black, fontWeight = FontWeight.SemiBold)
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Tax", color = CoolGray, fontSize = 13.sp)
-                        Text("$${"%.2f".format(tax)}", color = PureWhite, fontWeight = FontWeight.SemiBold)
+                        Text("Tax", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        Text("$${"%.2f".format(tax)}", color = if (isDarkVS) Color.White else Color.Black, fontWeight = FontWeight.SemiBold)
                     }
 
-                    HorizontalDivider(color = GlassBorder)
+                    HorizontalDivider(color = if (isDarkVS) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -358,7 +402,7 @@ fun VendorSubmitScreen(
                             text = "TOTAL",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (isDarkVS) Color.White else Color.Black
                         )
                         Text(
                             text = "$${"%.2f".format(total)}",

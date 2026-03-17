@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +28,10 @@ import com.example.reconix.shared.InvoiceUploadResponse
 import com.example.reconix.shared.OcrExtractedData
 import com.example.reconix.ui.components.GlassCard
 import com.example.reconix.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.viewmodel.FinanceViewModel
+import com.example.reconix.viewmodel.UploadUiState
+import com.example.reconix.BackHandler
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -39,21 +44,38 @@ import com.example.reconix.ui.theme.*
 fun InvoiceUploadScreen(
     onBack: () -> Unit = {},
     onUploadComplete: (InvoiceUploadResponse) -> Unit = {},
-    onRequestFilePick: ((fileName: String) -> Unit) -> Unit = { _ -> },
+    onRequestFilePick: ((fileName: String, bytes: ByteArray) -> Unit) -> Unit = { _ -> },
+    viewModel: FinanceViewModel = viewModel { FinanceViewModel() },
     modifier: Modifier = Modifier
 ) {
-    var isUploading by remember { mutableStateOf(false) }
-    var uploadResult by remember { mutableStateOf<InvoiceUploadResponse?>(null) }
+    val uploadState by viewModel.uploadState.collectAsState()
+
+    // Derive local state from ViewModel
+    val isUploading   = uploadState is UploadUiState.Uploading
+    val uploadResult  = (uploadState as? UploadUiState.Success)?.result
+    val uploadError   = (uploadState as? UploadUiState.Error)?.message
+
     var selectedFileName by remember { mutableStateOf<String?>(null) }
+    // true = route through Gemini AI; false = OCR.space quick-scan (default)
+    var useGeminiMode by remember { mutableStateOf(false) }
+    BackHandler { onBack() }
+
+    // Fire onUploadComplete callback once the upload finishes
+    LaunchedEffect(uploadState) {
+        if (uploadState is UploadUiState.Success) {
+            onUploadComplete((uploadState as UploadUiState.Success).result)
+        }
+    }
+
+    val isDark = LocalIsDarkTheme.current
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
-                Brush.verticalGradient(
-                    colors = listOf(DeepSlateBlue, SlateBlue800, DeepSlateBlue)
-                )
+                if (isDark) Color.Black else Color(0xFFF2F4F8)
             )
+            .statusBarsPadding()
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -78,12 +100,12 @@ fun InvoiceUploadScreen(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(GlassWhite5)
+                            .background(if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f))
                     ) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = PureWhite
+                            tint = if (isDark) Color.White else Color.Black
                         )
                     }
 
@@ -94,13 +116,64 @@ fun InvoiceUploadScreen(
                             "Upload Invoice",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (isDark) Color.White else Color.Black
                         )
                         Text(
                             "Upload PDF for automated extraction & validation",
                             style = MaterialTheme.typography.bodySmall,
-                            color = CoolGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                }
+            }
+
+            // ── Extraction Mode Selector ──
+            item {
+                GlassCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            "Extraction Method",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = !useGeminiMode,
+                                onClick = { useGeminiMode = false },
+                                label = { Text("OCR Quick Scan", fontSize = 13.sp) },
+                                leadingIcon = {
+                                    if (!useGeminiMode)
+                                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
+                                    else
+                                        Icon(Icons.Default.CameraAlt, null, Modifier.size(16.dp))
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            FilterChip(
+                                selected = useGeminiMode,
+                                onClick = { useGeminiMode = true },
+                                label = { Text("Gemini AI Extract", fontSize = 13.sp) },
+                                leadingIcon = {
+                                    if (useGeminiMode)
+                                        Icon(Icons.Default.CheckCircle, null, Modifier.size(16.dp))
+                                    else
+                                        Icon(Icons.Default.AutoAwesome, null, Modifier.size(16.dp))
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (useGeminiMode) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "✨ Gemini 1.5 Flash reads the PDF and returns richer data (Invoice#, Date, Tax)",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = ElectricIndigo
+                            )
+                        }
                     }
                 }
             }
@@ -109,14 +182,65 @@ fun InvoiceUploadScreen(
             item {
                 UploadDropZone(
                     isUploading = isUploading,
+                    isGemini = useGeminiMode,
                     selectedFileName = selectedFileName,
                     onPickFile = {
-                        onRequestFilePick { fileName ->
+                        onRequestFilePick { fileName, bytes ->
                             selectedFileName = fileName
-                            isUploading = true
+                            viewModel.uploadInvoice(bytes, fileName, useGeminiMode)
                         }
                     }
                 )
+            }
+
+            // ── No Invoice Selected State ──
+            if (selectedFileName == null && !isUploading && uploadResult == null) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                "No invoice selected",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isDark) Color.White else Color.Black
+                            )
+                            Text(
+                                "Select a PDF file above to read and extract its contents",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            // ── Upload Error ──
+            if (uploadError != null) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = AmberWarning)
+                            Text(uploadError, color = SilverText, fontSize = 13.sp)
+                        }
+                    }
+                }
             }
 
             // ── How It Works ──
@@ -138,7 +262,7 @@ fun InvoiceUploadScreen(
                                 "How It Works",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = PureWhite
+                                color = if (isDark) Color.White else Color.Black
                             )
                         }
 
@@ -150,8 +274,11 @@ fun InvoiceUploadScreen(
                         )
                         ProcessStep(
                             number = "2",
-                            title = "OCR Extraction",
-                            description = "AI extracts PO#, line items, vendor & totals",
+                            title = if (useGeminiMode) "Gemini AI Extraction" else "OCR Extraction",
+                            description = if (useGeminiMode)
+                                "Gemini 1.5 Flash reads the PDF — extracts Invoice#, Date, Tax & line items"
+                            else
+                                "OCR extracts PO#, line items, vendor & totals",
                             color = ElectricIndigo
                         )
                         ProcessStep(
@@ -173,7 +300,7 @@ fun InvoiceUploadScreen(
             // ── Upload Result ──
             if (uploadResult != null) {
                 item {
-                    UploadResultCard(result = uploadResult!!)
+                    UploadResultCard(result = uploadResult)
                 }
             }
 
@@ -205,12 +332,12 @@ fun InvoiceUploadScreen(
                             Text(
                                 "Email Channel Active",
                                 fontWeight = FontWeight.Bold,
-                                color = PureWhite,
+                                color = if (isDark) Color.White else Color.Black,
                                 fontSize = 14.sp
                             )
                             Text(
-                                "Vendors can also email invoices to invoices@reconix.com — they'll be auto-detected and processed",
-                                color = CoolGray,
+                                "Vendors can also email invoices to invoices@reconix.com \u2014 they'll be auto-detected and processed",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         }
@@ -240,6 +367,7 @@ fun InvoiceUploadScreen(
 @Composable
 private fun UploadDropZone(
     isUploading: Boolean,
+    isGemini: Boolean = false,
     selectedFileName: String?,
     onPickFile: () -> Unit
 ) {
@@ -279,21 +407,65 @@ private fun UploadDropZone(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (isUploading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(48.dp),
-                        color = NeonCyan,
-                        strokeWidth = 3.dp
-                    )
+                    // Branded pulsing upload indicator
+                    val uploadPulse by rememberInfiniteTransition(label = "uploadPulse")
+                        .animateFloat(
+                            initialValue = 0.9f,
+                            targetValue  = 1.35f,
+                            animationSpec = infiniteRepeatable(
+                                tween(700, easing = FastOutSlowInEasing),
+                                RepeatMode.Reverse
+                            ),
+                            label = "pulse"
+                        )
+                    val uploadAlpha by rememberInfiniteTransition(label = "uploadAlpha")
+                        .animateFloat(
+                            initialValue = 0.4f,
+                            targetValue  = 1f,
+                            animationSpec = infiniteRepeatable(
+                                tween(700, easing = FastOutSlowInEasing),
+                                RepeatMode.Reverse
+                            ),
+                            label = "alpha"
+                        )
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(64.dp)) {
+                        // Outer ripple
+                        Box(
+                            modifier = Modifier
+                                .size(64.dp)
+                                .scale(uploadPulse)
+                                .clip(CircleShape)
+                                .background(NeonCyan.copy(alpha = uploadAlpha * 0.18f))
+                        )
+                        // Core circle
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.radialGradient(
+                                        listOf(NeonCyan.copy(alpha = 0.9f), NeonCyan.copy(alpha = 0.3f))
+                                    )
+                                )
+                        ) {
+                            Icon(
+                                Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = Color(0xFF060E20),
+                                modifier = Modifier.size(22.dp).align(Alignment.Center)
+                            )
+                        }
+                    }
                     Text(
-                        "Processing...",
-                        color = NeonCyanLight,
+                        if (isGemini) "Analyzing Invoice with AI..." else "Scanning Invoice...",
+                        color = if (isGemini) ElectricIndigo else NeonCyanLight,
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
                     if (selectedFileName != null) {
                         Text(
                             selectedFileName,
-                            color = CoolGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp
                         )
                     }
@@ -306,13 +478,13 @@ private fun UploadDropZone(
                     )
                     Text(
                         "Drop Invoice PDF Here",
-                        color = PureWhite,
+                        color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
                     )
                     Text(
                         "or tap to select file",
-                        color = CoolGray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
                     Row(
@@ -330,13 +502,14 @@ private fun UploadDropZone(
 
 @Composable
 private fun FileTypeBadge(type: String) {
+    val isDark = LocalIsDarkTheme.current
     Surface(
         shape = RoundedCornerShape(6.dp),
-        color = SlateBlue700
+        color = if (isDark) Color(0xFF2A2A2A) else Color(0xFFE8E8E8)
     ) {
         Text(
             type,
-            color = CoolGray,
+            color = if (isDark) Color(0xFF9CA3AF) else Color(0xFF6B7280),
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
@@ -376,13 +549,13 @@ private fun ProcessStep(
         Column {
             Text(
                 title,
-                color = PureWhite,
+                color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp
             )
             Text(
                 description,
-                color = CoolGray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
@@ -396,8 +569,11 @@ private fun UploadResultCard(result: InvoiceUploadResponse) {
         InvoiceStatus.MATCHED -> NeonMint
         InvoiceStatus.MISMATCH -> VividRose
         InvoiceStatus.MANUAL_REVIEW -> AmberWarning
-        else -> CoolGray
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val isGemini = result.extractedData?.let {
+        it.invoiceNumber != null || it.date != null
+    } == true
 
     GlassCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -406,7 +582,7 @@ private fun UploadResultCard(result: InvoiceUploadResponse) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    when (result.validationResult?.status) {
+                    imageVector = when (result.validationResult?.status) {
                         InvoiceStatus.MATCHED -> Icons.Default.CheckCircle
                         InvoiceStatus.MISMATCH -> Icons.Default.Error
                         InvoiceStatus.MANUAL_REVIEW -> Icons.Default.Warning
@@ -419,34 +595,50 @@ private fun UploadResultCard(result: InvoiceUploadResponse) {
                 Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
-                        "Extraction Complete",
+                        text = if (isGemini) "Gemini AI Extraction Complete" else "Extraction Complete",
                         fontWeight = FontWeight.Bold,
-                        color = PureWhite,
+                        color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
                         fontSize = 16.sp
                     )
                     Text(
-                        result.message,
-                        color = CoolGray,
+                        text = result.message,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp
                     )
                 }
             }
 
-            // Show extracted data
-            result.extractedData?.let { data ->
-                HorizontalDivider(color = GlassBorder)
-
+            // Extracted data fields
+            val data = result.extractedData
+            if (data != null) {
+                HorizontalDivider(
+                    color = if (LocalIsDarkTheme.current)
+                        Color.White.copy(alpha = 0.08f)
+                    else
+                        Color.Black.copy(alpha = 0.06f)
+                )
                 if (data.detectedPoNumber != null) {
-                    ExtractedField("PO Reference", data.detectedPoNumber!!)
+                    ExtractedField(label = "PO Reference", value = data.detectedPoNumber!!)
                 }
                 if (data.vendorName != null) {
-                    ExtractedField("Vendor", data.vendorName!!)
+                    ExtractedField(label = "Vendor", value = data.vendorName!!)
                 }
                 if (data.totalAmount != null) {
-                    ExtractedField("Total Amount", "$${String.format("%.2f", data.totalAmount)}")
+                    val totalStr = "%.2f".format(data.totalAmount)
+                    ExtractedField(label = "Total Amount", value = "\$$totalStr")
                 }
-                ExtractedField("Line Items", "${data.lineItems.size} items detected")
-                ExtractedField("Confidence", "${String.format("%.0f", data.confidenceScore)}%")
+                ExtractedField(label = "Line Items", value = "${data.lineItems.size} items detected")
+                ExtractedField(label = "Confidence", value = "${"%.0f".format(data.confidenceScore)}%")
+                if (data.invoiceNumber != null) {
+                    ExtractedField(label = "Invoice Number", value = data.invoiceNumber!!)
+                }
+                if (data.date != null) {
+                    ExtractedField(label = "Invoice Date", value = data.date!!)
+                }
+                if (data.taxAmount != null) {
+                    val taxStr = "%.2f".format(data.taxAmount)
+                    ExtractedField(label = "Tax Amount", value = "\$$taxStr")
+                }
             }
         }
     }
@@ -458,10 +650,10 @@ private fun ExtractedField(label: String, value: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = CoolGray, fontSize = 13.sp)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         Text(
             value,
-            color = PureWhite,
+            color = if (LocalIsDarkTheme.current) Color.White else Color.Black,
             fontWeight = FontWeight.SemiBold,
             fontSize = 13.sp
         )

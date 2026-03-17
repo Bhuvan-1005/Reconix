@@ -1,6 +1,5 @@
 package com.example.reconix.network
 
-import com.example.reconix.shared.ApiRoutes
 import io.ktor.client.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -14,6 +13,12 @@ import kotlinx.serialization.json.Json
  * Configured for JSON serialization using shared DTOs
  */
 expect fun createPlatformHttpClient(): HttpClient
+
+/**
+ * Returns the base URL for the current platform.
+ * Android emulator maps host localhost → 10.0.2.2; all others use localhost.
+ */
+expect fun platformBaseUrl(): String
 
 /**
  * Shared Ktor Client configuration
@@ -54,7 +59,7 @@ object KtorClient {
     /**
      * Get the appropriate base URL for the current platform
      */
-    fun getBaseUrl(): String = ApiRoutes.BASE_URL
+    fun getBaseUrl(): String = platformBaseUrl()
 }
 
 

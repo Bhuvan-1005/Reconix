@@ -30,6 +30,9 @@ import com.example.reconix.ui.theme.*
 import com.example.reconix.utils.formatCurrency
 import com.example.reconix.utils.formatPercentage
 import com.example.reconix.utils.formatInt
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.viewmodel.DashboardUiState
+import com.example.reconix.viewmodel.FinanceViewModel
 
 /**
  * Finance Manager Dashboard - The "Control Tower"
@@ -43,83 +46,83 @@ import com.example.reconix.utils.formatInt
 fun FinanceDashboard(
     onInvoiceClick: (String) -> Unit,
     onLogout: () -> Unit,
-    onUploadInvoice: () -> Unit = {},
-    onNavigateToVendor: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {},
+    viewModel: FinanceViewModel = viewModel { FinanceViewModel() },
     modifier: Modifier = Modifier
 ) {
-    // TODO: Connect to ViewModel
-    val isLoading by remember { mutableStateOf(false) }
+    val uiState by viewModel.dashboardState.collectAsState()
 
-    // Mock data - replace with actual ViewModel
-    val metrics = DashboardMetricsDTO(
-        totalPendingInvoices = 12,
-        totalPendingAmount = 45230.50,
-        matchedInvoicesCount = 28,
-        mismatchedInvoicesCount = 5,
-        matchRate = 84.8,
-        totalPayableAmount = 152340.75,
-        averageProcessingTime = "2.3 hours",
-        recentActivity = emptyList()
+    // Trigger data load each time this screen enters composition
+    LaunchedEffect(Unit) { viewModel.loadDashboard() }
+
+    val isLoading    = uiState is DashboardUiState.Loading
+    val errorMessage = (uiState as? DashboardUiState.Error)?.message
+
+    val emptyMetrics = DashboardMetricsDTO(
+        totalPendingInvoices   = 0,
+        totalPendingAmount     = 0.0,
+        matchedInvoicesCount   = 0,
+        mismatchedInvoicesCount = 0,
+        matchRate              = 0.0,
+        totalPayableAmount     = 0.0,
+        averageProcessingTime  = "—",
+        recentActivity         = emptyList()
     )
+    val metrics = (uiState as? DashboardUiState.Success)?.metrics ?: emptyMetrics
+    val pendingInvoices = (uiState as? DashboardUiState.Success)?.pendingInvoices ?: emptyList()
 
-    val pendingInvoices = remember {
-        listOf(
-            InvoiceListItemDTO(
-                id = "INV-001",
-                poId = "PO-123",
-                vendorName = "Tech Suppliers Inc",
-                totalAmount = 5230.00,
-                status = InvoiceStatus.PENDING,
-                createdAt = "2026-02-14T10:30:00Z",
-                itemCount = 5,
-                matchPercentage = null
-            ),
-            InvoiceListItemDTO(
-                id = "INV-002",
-                poId = "PO-124",
-                vendorName = "Office Depot",
-                totalAmount = 1450.50,
-                status = InvoiceStatus.MATCHED,
-                createdAt = "2026-02-14T09:15:00Z",
-                itemCount = 3,
-                matchPercentage = 100.0
-            ),
-            InvoiceListItemDTO(
-                id = "INV-003",
-                poId = "PO-999",
-                vendorName = "Unknown Vendor LLC",
-                totalAmount = 3200.00,
-                status = InvoiceStatus.MANUAL_REVIEW,
-                createdAt = "2026-02-14T08:00:00Z",
-                itemCount = 2,
-                matchPercentage = null
-            )
-        )
-    }
+    val isDark = LocalIsDarkTheme.current
+    val bgColor = if (isDark) Color.Black else Color(0xFFF2F4F8)
 
-    Box(
+    Scaffold(
+        containerColor = Color.Transparent,
         modifier = modifier
+    ) { innerPadding ->
+    Box(
+        modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colorStops = arrayOf(
-                        0.0f to DeepSlateBlue,
-                        0.3f to Color(0xFF0A1530),
-                        1.0f to Color(0xFF060E20)
-                    )
-                )
-            )
+            .background(bgColor)
+            .padding(innerPadding)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
-            FinanceDashboardHeader(onLogout = onLogout)
+            FinanceDashboardHeader(
+                onLogout = onLogout,
+                onNavigateToProfile = onNavigateToProfile
+            )
 
             if (isLoading) {
+                FullScreenSkeletonLoader(
+                    modifier  = Modifier.fillMaxSize(),
+                    itemCount = 4
+                )
+            } else if (errorMessage != null) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    SkeletonListLoader(itemCount = 3)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = AmberWarning,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = errorMessage,
+                            color = SilverText,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Button(
+                            onClick = { viewModel.loadDashboard() },
+                            colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo)
+                        ) { Text("Retry") }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -159,7 +162,7 @@ fun FinanceDashboard(
                                 text = "Pending Invoices",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = PureWhite
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                             // Count badge
                             Box(
@@ -192,59 +195,22 @@ fun FinanceDashboard(
             }
         } // end Column
 
-        // ── FAB: Upload Invoice (pulsing) ─────────────────
-        PulsingFab(
-            onClick = onUploadInvoice,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(20.dp)
-        )
-
-        // ── Vendor Switch Button ──────────────────────────
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(20.dp)
-                .clickable(onClick = onNavigateToVendor),
-            shape = RoundedCornerShape(16.dp),
-            color = NeonCyan.copy(alpha = 0.08f),
-            tonalElevation = 0.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.ShoppingCart,
-                    contentDescription = null,
-                    tint = NeonCyan,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "Vendor",
-                    color = NeonCyan,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                )
-            }
-        }
     } // end Box
+    } // end Scaffold
 }
 
 @Composable
-private fun FinanceDashboardHeader(onLogout: () -> Unit) {
+private fun FinanceDashboardHeader(
+    onLogout: () -> Unit,
+    onNavigateToProfile: () -> Unit = {}
+) {
+    val isDark = LocalIsDarkTheme.current
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF0D1B3E),
-                        Color(0xFF122250),
-                        Color(0xFF0D1B3E)
-                    )
-                )
+                if (isDark) Color(0xFF111111) else Color(0xFFFFFFFF)
             )
     ) {
         // Subtle top accent bar
@@ -266,12 +232,15 @@ private fun FinanceDashboardHeader(onLogout: () -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
                     text = "Finance Dashboard",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = PureWhite
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -286,26 +255,36 @@ private fun FinanceDashboardHeader(onLogout: () -> Unit) {
                     Text(
                         text = "Match Validator · Live",
                         fontSize = 12.sp,
-                        color = SilverText,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 0.5.sp
                     )
                 }
             }
 
-            // Logout button — minimal icon style
-            Surface(
-                modifier = Modifier.size(40.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1A3066).copy(alpha = 0.6f),
-                onClick = onLogout
-            ) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Theme toggle
+                IconButton(onClick = { ThemeManager.isDarkMode = !ThemeManager.isDarkMode }) {
                     Icon(
-                        imageVector = Icons.Default.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = SilverText,
-                        modifier = Modifier.size(18.dp)
+                        if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                        contentDescription = "Toggle theme",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                }
+                // Profile
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = ElectricIndigo.copy(alpha = 0.15f),
+                    onClick = onNavigateToProfile
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = ElectricIndigo,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -391,12 +370,14 @@ private fun MetricCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
+        val isDark = LocalIsDarkTheme.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        listOf(SlateBlue800, Color(0xFF0A1530))
+                        if (isDark) listOf(Color(0xFF1A1A1A), Color(0xFF0D0D0D))
+                        else listOf(Color(0xFFFFFFFF), Color(0xFFF4F4F4))
                     ),
                     RoundedCornerShape(20.dp)
                 )
@@ -426,7 +407,7 @@ private fun MetricCard(
                         text = title,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = SilverText,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 0.5.sp
                     )
                     Box(
@@ -454,7 +435,7 @@ private fun MetricCard(
                 Text(
                     text = subtitle,
                     fontSize = 11.sp,
-                    color = MutedText
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -474,11 +455,15 @@ private fun MatchRateCard(
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
+        val isDark = LocalIsDarkTheme.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.linearGradient(listOf(SlateBlue800, Color(0xFF0A1530))),
+                    Brush.linearGradient(
+                        if (isDark) listOf(Color(0xFF1A1A1A), Color(0xFF0D0D0D))
+                        else listOf(Color(0xFFFFFFFF), Color(0xFFF4F4F4))
+                    ),
                     RoundedCornerShape(24.dp)
                 )
         ) {
@@ -496,7 +481,7 @@ private fun MatchRateCard(
                         text = "Match Rate",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = PureWhite
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                     // Big match % badge
                     Box(
@@ -553,7 +538,7 @@ private fun MatchRateBar(
                         .clip(CircleShape)
                         .background(color)
                 )
-                Text(text = label, fontSize = 13.sp, color = SilverText, fontWeight = FontWeight.Medium)
+                Text(text = label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
             }
             Text(
                 text = "$count  ·  ${percentage.formatPercentage()}%",
@@ -598,11 +583,15 @@ private fun FinanceInvoiceCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         onClick = onClick
     ) {
+        val isDark = LocalIsDarkTheme.current
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.linearGradient(listOf(SlateBlue800, Color(0xFF0B1428))),
+                    Brush.linearGradient(
+                        if (isDark) listOf(Color(0xFF1A1A1A), Color(0xFF0D0D0D))
+                        else listOf(Color(0xFFFFFFFF), Color(0xFFF4F4F4))
+                    ),
                     RoundedCornerShape(20.dp)
                 )
         ) {
@@ -621,13 +610,13 @@ private fun FinanceInvoiceCard(
                             text = invoice.id,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = invoice.vendorName,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = SilverText
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     StatusBadge(status = invoice.status)
@@ -635,7 +624,7 @@ private fun FinanceInvoiceCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                HorizontalDivider(color = SlateBlue600.copy(alpha = 0.4f))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -648,7 +637,7 @@ private fun FinanceInvoiceCard(
                         Text(
                             text = "AMOUNT",
                             fontSize = 10.sp,
-                            color = MutedText,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             letterSpacing = 1.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -662,14 +651,14 @@ private fun FinanceInvoiceCard(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "PO: ${invoice.poId}",
+                            text = if (invoice.poId.isBlank()) "No PO" else "PO: ${invoice.poId}",
                             fontSize = 12.sp,
-                            color = SilverText
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "${invoice.itemCount} line items",
                             fontSize = 11.sp,
-                            color = MutedText
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -702,7 +691,7 @@ private fun FinanceInvoiceCard(
                             .fillMaxWidth()
                             .height(5.dp)
                             .clip(RoundedCornerShape(3.dp))
-                            .background(SlateBlue600.copy(alpha = 0.3f))
+                            .background(if (LocalIsDarkTheme.current) Color.White.copy(alpha = 0.1f) else Color.Black.copy(alpha = 0.1f))
                     ) {
                         val pct = (matchPct / 100).toFloat().coerceIn(0f, 1f)
                         val barColor = if (matchPct >= 80) EmeraldMatch else GoldPending

@@ -29,6 +29,9 @@ import com.example.reconix.ui.components.*
 import com.example.reconix.ui.theme.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.viewmodel.VendorUiState
+import com.example.reconix.viewmodel.VendorViewModel
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -67,16 +70,27 @@ fun VendorDashboardScreen(
     onProfileClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     onOrderClick: (String) -> Unit = {},
-    onCreatePO: () -> Unit = {},
-    onNavigateToFinance: () -> Unit = {}
+    viewModel: VendorViewModel = viewModel { VendorViewModel() }
 ) {
-    val backgroundGradient = Brush.verticalGradient(
-        colorStops = arrayOf(
-            0.0f to DeepSlateBlue,
-            0.3f to Color(0xFF0A1530),
-            1.0f to Color(0xFF060E20)
+    val uiState by viewModel.uiState.collectAsState()
+
+    val isLoading     = uiState is VendorUiState.Loading
+    // Map real POs from the server to the existing card format.
+    val purchaseOrders = (uiState as? VendorUiState.Success)?.purchaseOrders ?: emptyList()
+    val displayOrders = if (purchaseOrders.isEmpty()) sampleOrders else purchaseOrders.map { po ->
+        ActiveOrder(
+            poNumber    = po.id,
+            itemName    = po.items.firstOrNull()?.itemName ?: po.vendorName,
+            totalAmount = "\$${"%.2f".format(po.totalAmount)}",
+            date        = "${po.items.size} item${if (po.items.size != 1) "s" else ""}",
+            status      = InvoiceStatus.PENDING
         )
-    )
+    }
+    val openPoCount   = if (purchaseOrders.isEmpty()) 5 else purchaseOrders.size
+    val totalValueKi  = if (purchaseOrders.isEmpty()) 12
+                        else (purchaseOrders.sumOf { it.totalAmount } / 1000).toInt().coerceAtLeast(1)
+    val isDark = LocalIsDarkTheme.current
+    val backgroundGradient = if (isDark) Color.Black else Color(0xFFF2F4F8)
 
     Scaffold(
         containerColor = Color.Transparent
@@ -95,6 +109,15 @@ fun VendorDashboardScreen(
                     onLogout = onLogout
                 )
 
+                if (isLoading) {
+                    // ════════════════════════════════════════════
+                    // Skeleton loading that matches the brand style
+                    // ════════════════════════════════════════════
+                    FullScreenSkeletonLoader(
+                        modifier  = Modifier.fillMaxSize(),
+                        itemCount = 5
+                    )
+                } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -112,15 +135,15 @@ fun VendorDashboardScreen(
                     ) {
                         StatCard(
                             icon = Icons.Default.ShoppingCart,
-                            value = 5,
+                            value = openPoCount,
                             label = "Open POs",
                             accentColor = ElectricIndigo,
                             modifier = Modifier.weight(1f)
                         )
                         StatCard(
                             icon = Icons.Default.AccountBalanceWallet,
-                            value = 12,
-                            label = "Pending Payments",
+                            value = totalValueKi,
+                            label = "Total Value",
                             prefix = "$",
                             suffix = "k",
                             accentColor = EmeraldMatch,
@@ -138,14 +161,14 @@ fun VendorDashboardScreen(
                         text = "Active Orders",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = PureWhite
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
 
                 // ═══════════════════════════════════════════
                 // ── ACTIVE ORDERS LIST (Staggered entrance) ─
                 // ═══════════════════════════════════════════
-                itemsIndexed(sampleOrders) { index, order ->
+                itemsIndexed(displayOrders) { index, order ->
                     AnimatedOrderCard(
                         order = order,
                         index = index,
@@ -153,54 +176,10 @@ fun VendorDashboardScreen(
                     )
                 }
             } // end LazyColumn
+                } // end else (not loading)
             } // end Column
 
-            // ── FAB: Create PO ──
-            FloatingActionButton(
-                onClick = onCreatePO,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(20.dp),
-                containerColor = EmeraldMatch,
-                contentColor = PureWhite,
-                shape = CircleShape
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Create PO",
-                    modifier = Modifier.size(28.dp)
-                )
-            }
 
-            // ── Bottom Nav: Switch to Finance ──
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(20.dp)
-                    .clickable(onClick = onNavigateToFinance),
-                shape = RoundedCornerShape(16.dp),
-                color = ElectricIndigo.copy(alpha = 0.15f),
-                tonalElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Assessment,
-                        contentDescription = null,
-                        tint = ElectricIndigo,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Finance",
-                        color = ElectricIndigo,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    )
-                }
-            }
         }
     }
 }
@@ -212,17 +191,13 @@ private fun DashboardHeader(
     onProfileClick: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF0D1B3E),
-                        Color(0xFF122250),
-                        Color(0xFF0D1B3E)
-                    )
-                )
+                if (isDark) Color(0xFF111111) else Color(0xFFFFFFFF)
             )
     ) {
         // Top accent bar
@@ -247,13 +222,13 @@ private fun DashboardHeader(
                 Text(
                     text = "Good Morning,",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = CoolGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
                     text = vendorName,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = PureWhite
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -268,7 +243,7 @@ private fun DashboardHeader(
                     Text(
                         text = "Vendor Portal · Live",
                         fontSize = 12.sp,
-                        color = SilverText,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 0.5.sp
                     )
                 }
@@ -277,35 +252,27 @@ private fun DashboardHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Theme toggle
+                IconButton(onClick = { ThemeManager.isDarkMode = !ThemeManager.isDarkMode }) {
+                    Icon(
+                        if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                        contentDescription = "Toggle theme",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 // Profile
                 Surface(
                     modifier = Modifier.size(40.dp),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF1A3066).copy(alpha = 0.6f),
+                    color = EmeraldMatch.copy(alpha = 0.15f),
                     onClick = onProfileClick
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Outlined.AccountCircle,
+                            Icons.Default.Person,
                             contentDescription = "Profile",
-                            tint = SilverText,
+                            tint = EmeraldMatch,
                             modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                // Logout
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF1A3066).copy(alpha = 0.6f),
-                    onClick = onLogout
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.ExitToApp,
-                            contentDescription = "Logout",
-                            tint = SilverText,
-                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -384,7 +351,7 @@ private fun AnimatedOrderCard(
                 text = order.itemName,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = PureWhite
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             // Row 3: Amount + Date
@@ -404,7 +371,7 @@ private fun AnimatedOrderCard(
                 Text(
                     text = order.date,
                     style = MaterialTheme.typography.bodySmall,
-                    color = CoolGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

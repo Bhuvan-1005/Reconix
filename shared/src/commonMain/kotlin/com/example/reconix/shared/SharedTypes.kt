@@ -72,7 +72,8 @@ data class InvoiceDTO(
     val vendorId: String,
     val totalAmount: Double,
     val status: InvoiceStatus = InvoiceStatus.PENDING,
-    val items: List<InvoiceItemDTO>
+    val items: List<InvoiceItemDTO>,
+    val rejectionReason: String? = null
 )
 
 /**
@@ -206,7 +207,8 @@ data class InvoiceListItemDTO(
     val status: InvoiceStatus,
     val createdAt: String,
     val itemCount: Int,
-    val matchPercentage: Double? = null
+    val matchPercentage: Double? = null,
+    val rejectionReason: String? = null   // shown to vendor when rejected
 )
 
 /**
@@ -254,7 +256,11 @@ data class OcrExtractedData(
     val vendorName: String?,
     val lineItems: List<OcrLineItem>,
     val totalAmount: Double?,
-    val confidenceScore: Double // 0.0 to 100.0
+    val confidenceScore: Double, // 0.0 to 100.0
+    // —— Gemini-enriched fields (null when extracted via OCR.space) ——
+    val invoiceNumber: String? = null,
+    val date: String? = null,
+    val taxAmount: Double? = null
 )
 
 @Serializable
@@ -318,8 +324,10 @@ data class UserDTO(
  * Both Frontend and Backend reference these constants
  */
 object ApiRoutes {
-    const val BASE_URL = "https://reconix-server.onrender.com" // Render deployment
-    const val BASE_URL_LOCALHOST = "http://localhost:8081" // Local development
+    // NOTE: URL resolution is handled per-platform via platformBaseUrl() in KtorClient.
+    // Android emulator → http://10.0.2.2:8081  |  JVM/Web/iOS → http://localhost:8081
+    const val BASE_URL = "http://localhost:8081"             // Python server (local)
+    const val BASE_URL_LOCALHOST = "http://localhost:8081"   // Local development
 
     object Auth {
         const val LOGIN = "/auth/login"
@@ -329,6 +337,7 @@ object ApiRoutes {
     object Invoice {
         const val SUBMIT = "/invoice/submit"
         const val UPLOAD = "/invoice/upload"
+        const val GEMINI_EXTRACT = "/invoice/gemini-extract"  // Gemini AI extraction
         const val LIST = "/invoice/list"
         const val PENDING = "/invoice/pending" // Finance Manager - Pending invoices
         const val APPROVE = "/invoice/approve"
@@ -358,6 +367,70 @@ object ApiRoutes {
         const val MATCH_RATE = "/analytics/match-rate"
         const val VENDOR_PERFORMANCE = "/analytics/vendor-performance"
     }
+
+    object Admin {
+        const val USERS        = "/admin/users"
+        const val AUDIT        = "/admin/audit"
+        const val TOLERANCE    = "/admin/tolerance"
+        fun deactivateUser(id: Int) = "/admin/users/$id/deactivate"
+    }
+}
+
+// ── Admin DTOs ────────────────────────────────────────────────────────────────
+
+@Serializable
+data class CreateUserRequest(
+    val username: String,
+    val fullName: String,
+    val email: String? = null,
+    val role: String,          // FINANCE_MANAGER | VENDOR | ADMIN
+    val password: String,
+    val vendorId: String? = null
+)
+
+@Serializable
+data class CreateUserResponse(
+    val success: Boolean,
+    val message: String,
+    val user: UserDTO? = null
+)
+
+@Serializable
+data class AuditLogItemDTO(
+    val id: Int,
+    val invoiceId: String,
+    val actionType: String,
+    val performedBy: String,
+    val notes: String? = null,
+    val timestamp: String,
+    val invoiceTotal: Double
+) {
+    // Aliases used by AdminDashboardScreen
+    val entity: String get() = invoiceId
+    val action: String get() = actionType
+    val actor: String  get() = performedBy
+}
+
+@Serializable
+data class UserListItemDTO(
+    val id: Int,
+    val username: String,
+    val fullName: String,
+    val email: String? = null,
+    val role: String,
+    val vendorId: String? = null,
+    val isActive: Boolean = true
+)
+
+@Serializable
+data class ToleranceConfigDTO(
+    val priceTolerancePct: Double = 2.0,
+    val quantityTolerance: Int = 1,
+    val amountThreshold: Double = 50.0
+) {
+    // Aliases used by AdminDashboardScreen / AdminViewModel
+    val priceVariancePct:  Double get() = priceTolerancePct
+    val qtyVarianceUnits:  Int    get() = quantityTolerance
 }
 
 

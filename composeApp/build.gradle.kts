@@ -46,6 +46,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.ktor.client.android)
+            implementation(libs.androidx.biometric)
         }
         commonMain.dependencies {
             // Shared Module - Type-safe DTOs

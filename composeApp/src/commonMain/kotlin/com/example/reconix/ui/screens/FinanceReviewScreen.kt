@@ -29,7 +29,6 @@ import com.example.reconix.ui.theme.*
 // ── Brand colors (aligned with fintech design system) ────────
 private val EmeraldGreen = Color(0xFF00C896)   // EmeraldMatch
 private val VividRose    = Color(0xFFFF2D5B)   // CrimsonMismatch
-private val MidnightBg   = Color(0xFF060E20)   // DeepSlateBlue
 private val Indigo       = Color(0xFF4F7FFF)   // ElectricIndigo
 
 /**
@@ -76,20 +75,23 @@ fun FinanceReviewScreen(
     val totalCount = sampleLineItems.size
     val matchPercentage = (matchedCount.toDouble() / totalCount * 100)
 
+    val isDarkFR = LocalIsDarkTheme.current
+
     val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(MidnightBg, Color(0xFF070E1B))
+        colors = if (isDarkFR) listOf(Color.Black, Color(0xFF0A0A0A)) else listOf(Color(0xFFF2F4F8), Color(0xFFE8EAEE))
     )
 
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
             Surface(
-                color = Color(0xFF0D1B3E),
+                color = if (isDarkFR) Color(0xFF111111) else Color.White,
                 tonalElevation = 0.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -97,7 +99,7 @@ fun FinanceReviewScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
-                            tint = PureWhite
+                            tint = if (isDarkFR) Color.White else Color.Black
                         )
                     }
                     Column {
@@ -105,12 +107,12 @@ fun FinanceReviewScreen(
                             text = "3-Way Match Review",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (isDarkFR) Color.White else Color.Black
                         )
                         Text(
                             text = "$invoiceId • $vendorName",
                             style = MaterialTheme.typography.bodySmall,
-                            color = CoolGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -119,7 +121,7 @@ fun FinanceReviewScreen(
         bottomBar = {
             // ── Action Buttons ──────────────────────────
             Surface(
-                color = Color(0xFF0D1B3E),
+                color = if (isDarkFR) Color(0xFF111111) else Color.White,
                 tonalElevation = 0.dp
             ) {
                 Row(
@@ -189,7 +191,7 @@ fun FinanceReviewScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Match Rate", style = MaterialTheme.typography.labelMedium, color = CoolGray)
+                            Text("Match Rate", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = "${"%.1f".format(matchPercentage)}%",
@@ -199,7 +201,7 @@ fun FinanceReviewScreen(
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("$matchedCount / $totalCount matched", color = CoolGray, fontSize = 13.sp)
+                            Text("$matchedCount / $totalCount matched", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                             Spacer(Modifier.height(4.dp))
                             Text(
                                 text = if (matchedCount == totalCount) "✓ All Items Match" else "⚠ Discrepancies Found",
@@ -280,7 +282,7 @@ private fun ComparisonRow(item: ComparisonLineItem) {
                 text = item.itemName,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                color = PureWhite,
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.weight(1f)
             )
             Icon(
@@ -301,7 +303,7 @@ private fun ComparisonRow(item: ComparisonLineItem) {
                 qty = item.poQty,
                 price = item.poPrice,
                 modifier = Modifier.weight(1f),
-                textColor = CoolGray
+                textColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             // GRN Block
@@ -316,7 +318,7 @@ private fun ComparisonRow(item: ComparisonLineItem) {
                 qty = item.invoiceQty,
                 price = item.invoicePrice,
                 modifier = Modifier.weight(1f),
-                textColor = PureWhite,
+                textColor = MaterialTheme.colorScheme.onSurface,
                 isHighlighted = !item.isMatch
             )
         }
@@ -328,7 +330,7 @@ private fun ComparisonBlock(
     qty: Int,
     price: Double,
     modifier: Modifier = Modifier,
-    textColor: Color = CoolGray,
+    textColor: Color = Color(0xFF9CA3AF),
     isHighlighted: Boolean = false
 ) {
     val displayColor = if (isHighlighted) VividRose else textColor
@@ -336,7 +338,7 @@ private fun ComparisonBlock(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(SlateBlue800.copy(alpha = 0.4f))
+            .background(if (LocalIsDarkTheme.current) Color(0xFF1A1A1A) else Color(0xFFE8E8E8))
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -365,12 +367,12 @@ private fun GrnBlock(
     modifier: Modifier = Modifier
 ) {
     val isMatch = qty == expectedQty
-    val displayColor = if (isMatch) CoolGray else VividRose
+    val displayColor = if (isMatch) MaterialTheme.colorScheme.onSurfaceVariant else VividRose
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(SlateBlue800.copy(alpha = 0.4f))
+            .background(if (LocalIsDarkTheme.current) Color(0xFF1A1A1A) else Color(0xFFE8E8E8))
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally

@@ -5,6 +5,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -22,40 +28,40 @@ import androidx.compose.runtime.Composable
 private val DarkColorScheme = darkColorScheme(
     // Primary brand: vivid royal blue (#4F7FFF)
     primary             = ElectricIndigo,
-    onPrimary           = PureWhite,
-    primaryContainer    = NavyLight,          // Elevated card surface
+    onPrimary           = Color.White,
+    primaryContainer    = Color(0xFF1A1A1A),
     onPrimaryContainer  = ElectricIndigoLight,
 
     // Secondary: Neon cyan for data highlights
-    secondary             = NeonCyan,
-    onSecondary           = DeepSlateBlue,
-    secondaryContainer    = SlateBlue700,
-    onSecondaryContainer  = NeonCyanLight,
+    secondary             = ElectricIndigo,
+    onSecondary           = Color.Black,
+    secondaryContainer    = Color(0xFF1A1A1A),
+    onSecondaryContainer  = Color(0xFFE0E0E0),
 
     // Tertiary: Gold for pending/warning states
     tertiary             = GoldPending,
-    onTertiary           = DeepSlateBlue,
-    tertiaryContainer    = SlateBlue700,
+    onTertiary           = Color.Black,
+    tertiaryContainer    = Color(0xFF1A1A1A),
     onTertiaryContainer  = AmberWarningLight,
 
     // Error: Crimson red (#FF2D5B)
     error             = CrimsonMismatch,
-    onError           = PureWhite,
+    onError           = Color.White,
     errorContainer    = CrimsonMismatchDark,
     onErrorContainer  = VividRoseLight,
 
-    // Background: True deep navy (#060E20)
-    background   = DeepSlateBlue,
-    onBackground = PureWhite,
+    // Background: True black
+    background   = Color.Black,
+    onBackground = Color.White,
 
-    // Surface: Navy card (#0D1B3E)
-    surface          = SlateBlue800,
-    onSurface        = PureWhite,
-    surfaceVariant   = SlateBlue700,
-    onSurfaceVariant = SilverText,
+    // Surface: Dark neutral (no blue)
+    surface          = Color(0xFF121212),
+    onSurface        = Color.White,
+    surfaceVariant   = Color(0xFF1E1E1E),
+    onSurfaceVariant = Color(0xFF9CA3AF),
 
-    outline        = SlateBlue600,
-    outlineVariant = SlateBlue700
+    outline        = Color(0xFF333333),
+    outlineVariant = Color(0xFF2A2A2A)
 )
 
 // ── Light Color Scheme — Cloud White Fintech ───────────────
@@ -96,22 +102,39 @@ private val LightColorScheme = lightColorScheme(
 
 @Composable
 fun ReconixTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = ThemeManager.isDarkMode,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = AppTypography,
-        shapes = AppMaterialShapes,
-        content = content
-    )
+    CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = AppTypography,
+            shapes = AppMaterialShapes,
+            content = content
+        )
+    }
+}
+
+/**
+ * Composition local that provides the current dark-theme flag.
+ * Wrap your root composable with `CompositionLocalProvider(LocalIsDarkTheme provides isDark)`
+ * or simply read it from AppShell / ReconixTheme wrapper.
+ */
+val LocalIsDarkTheme = compositionLocalOf { true }
+
+/**
+ * Simple singleton for programmatic theme overrides.
+ * Read `ThemeManager.isDarkMode` anywhere; toggle it to re-theme.
+ */
+object ThemeManager {
+    var isDarkMode: Boolean by mutableStateOf(true)
 }
 
 /** Convenience alias — use either name */
 @Composable
 fun AppTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = ThemeManager.isDarkMode,
     content: @Composable () -> Unit
 ) = ReconixTheme(darkTheme = darkTheme, content = content)

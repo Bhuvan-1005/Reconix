@@ -1,27 +1,4 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
-    <!-- Shield body — Electric Indigo #6366F1 -->
-    <path
-        android:fillColor="#6366F1"
-        android:pathData="M54,20 L80,30 C80,30 82,56 72,72 C66,81 54,88 54,88 C54,88 42,81 36,72 C26,56 28,30 28,30 Z" />
-
-    <!-- Inner shield highlight — slightly lighter indigo -->
-    <path
-        android:fillColor="#818CF8"
-        android:pathData="M54,25 L76,34 C76,34 78,56 69,70 C64,77 54,83 54,83 C54,83 44,77 39,70 C30,56 32,34 32,34 Z"
-        android:fillAlpha="0.3" />
-
-    <!-- Checkmark — Emerald Green #10B981 -->
-    <path
-        android:pathData="M44,54 L50,62 L66,44"
-        android:strokeColor="#10B981"
-        android:strokeWidth="4.5"
-        android:strokeLineCap="round"
-        android:strokeLineJoin="round"
-        android:fillColor="#00000000" />
-
-</vector>
+﻿<?xml version="1.0" encoding="utf-8"?>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/ic_launcher_image"
+    android:gravity="fill" />

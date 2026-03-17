@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,22 +24,14 @@ import androidx.compose.ui.unit.sp
 import com.example.reconix.ui.theme.*
 import kotlin.math.roundToInt
 
-// ─── private tokens ─────────────────────────────────────────────────────────
-private val NavyCard     = Color(0xFF0D1B3E)
-private val NavySurface  = Color(0xFF112048)
-private val PureWhite    = Color(0xFFFFFFFF)
-private val SilverText   = Color(0xFFB8C8E8)
-private val CardShape    = RoundedCornerShape(20.dp)
-
 /**
  * ═══════════════════════════════════════════════════════════════
- *  StatCard — Premium KPI metric widget
+ *  StatCard — Theme-Aware KPI metric widget
  *
- *  • Dark navy glass surface with accent-tinted shadow
+ *  • Glass surface with accent-tinted shadow
  *  • Accent-colored icon in a pill circle
  *  • Monospace count-up animation (0 → target, 1200 ms)
  *  • Left accent bar (3dp wide) matching the icon color
- *  • Fully 8dp-grid aligned: 16dp inner padding, 8dp spacers
  * ═══════════════════════════════════════════════════════════════
  */
 @Composable
@@ -51,6 +44,8 @@ fun StatCard(
     suffix: String = "",
     accentColor: Color = Color(0xFF4F7FFF)   // Royal Blue default
 ) {
+    val isDark = LocalIsDarkTheme.current
+
     // Count-up animation (0 → value in 1200 ms, ease-out)
     val animatedValue = remember { Animatable(0f) }
     LaunchedEffect(value) {
@@ -61,16 +56,27 @@ fun StatCard(
         )
     }
 
-    val glassBrush = Brush.verticalGradient(
-        colorStops = arrayOf(
-            0.00f to NavySurface,
-            1.00f to NavyCard
+    val glassBrush = if (isDark) {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.00f to DarkCardElevated,
+                1.00f to DarkCard
+            )
         )
-    )
+    } else {
+        Brush.verticalGradient(
+            colorStops = arrayOf(
+                0.00f to LightCardElevated,
+                1.00f to LightCard
+            )
+        )
+    }
+
+    val cardShape = RoundedCornerShape(20.dp)
 
     Box(
         modifier = modifier
-            .clip(CardShape)
+            .clip(cardShape)
             .background(glassBrush)
     ) {
         // ── Left accent bar ────────────────────────────────
@@ -114,7 +120,7 @@ fun StatCard(
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 fontFamily = FontFamily.Monospace,
-                color = PureWhite,
+                color = MaterialTheme.colorScheme.onSurface,
                 letterSpacing = (-0.5).sp
             )
 
@@ -125,7 +131,7 @@ fun StatCard(
                 text = label,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = SilverText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 letterSpacing = 0.5.sp
             )
         }

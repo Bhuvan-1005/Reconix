@@ -111,6 +111,15 @@ val AmberWarning      = GoldPending
 val AmberWarningLight = Color(0xFFFFCC33)
 val AmberWarningDark  = GoldPendingDark
 
+// ── Dark / Light Theme Surface Tokens ───────────────────────
+// Used by AppShell, AdminDashboardScreen, UserProfileScreen
+val DarkCard          = Color(0xFF1A1A1A)   // Dark-mode card base (true black)
+val DarkCardElevated  = Color(0xFF222222)   // Dark-mode elevated card
+val TrueBlack         = Color(0xFF020508)   // Near-black for deepest dark surfaces
+val LightCard         = Color(0xFFF0F4FF)   // Light-mode card base   (= SoftGrey50)
+val LightCardElevated = Color(0xFFE4ECFF)   // Light-mode elevated    (= SoftGrey100)
+val LightBorder       = Color(0xFFCCD8F5)   // Light-mode border      (= SoftGrey200)
+
 // ── Shadow ───────────────────────────────────────────────────
 val CardShadowColor = Color(0x33000000)   // 20% black
 

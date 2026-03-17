@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +26,11 @@ import com.example.reconix.ui.components.*
 import com.example.reconix.ui.theme.*
 import com.example.reconix.utils.formatCurrency
 import com.example.reconix.utils.formatInt
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reconix.viewmodel.FinanceViewModel
+import com.example.reconix.viewmodel.InvoiceActionUiState
+import com.example.reconix.viewmodel.ThreeWayMatchUiState
+import com.example.reconix.BackHandler
 
 /**
  * 3-Way Match Visualization Screen
@@ -41,58 +47,42 @@ fun ThreeWayMatchScreen(
     onApprove: (String, String?) -> Unit,
     onReject: (String, String?) -> Unit,
     onBack: () -> Unit,
+    viewModel: FinanceViewModel = viewModel { FinanceViewModel() },
     modifier: Modifier = Modifier
 ) {
-    // TODO: Connect to ViewModel
-    var isLoading by remember { mutableStateOf(false) }
-    var showRejectDialog by remember { mutableStateOf(false) }
-    var rejectNotes by remember { mutableStateOf("") }
+    val threeWayMatchState by viewModel.threeWayMatchState.collectAsState()
+    val invoiceActionState by viewModel.invoiceActionState.collectAsState()
 
-    // Mock data - replace with actual ViewModel
-    val matchData = remember {
-        ThreeWayMatchDTO(
-            invoiceId = invoiceId,
-            poId = "PO-123",
-            vendorName = "Tech Suppliers Inc",
-            invoiceDate = "2026-02-14T10:30:00Z",
-            totalAmount = 5230.00,
-            status = InvoiceStatus.PENDING,
-            matchDetails = listOf(
-                ValidationDetailDTO(
-                    itemId = "ITEM-001",
-                    itemName = "Dell XPS 15 Laptop",
-                    poQuantity = 10,
-                    grnQuantity = 10,
-                    invoiceQuantity = 10,
-                    poPrice = 1500.00,
-                    invoicePrice = 1500.00,
-                    priceDifference = 0.00,
-                    quantityMatch = true,
-                    priceMatch = true,
-                    overallMatch = true
-                ),
-                ValidationDetailDTO(
-                    itemId = "ITEM-002",
-                    itemName = "USB-C Docking Station",
-                    poQuantity = 5,
-                    grnQuantity = 5,
-                    invoiceQuantity = 6,
-                    poPrice = 250.00,
-                    invoicePrice = 250.00,
-                    priceDifference = 0.00,
-                    quantityMatch = false,
-                    priceMatch = true,
-                    overallMatch = false
-                )
-            ),
-            overallMatchPercentage = 50.0,
-            createdAt = "2026-02-14T10:30:00Z",
-            validatedAt = null
-        )
+    // Load data when the invoice ID is known
+    LaunchedEffect(invoiceId) { viewModel.loadThreeWayMatch(invoiceId) }
+    BackHandler { onBack() }
+
+    // Navigate back once an approve/reject action completes
+    LaunchedEffect(invoiceActionState) {
+        when (val s = invoiceActionState) {
+            is InvoiceActionUiState.Success -> {
+                if (s.newStatus.contains("APPROVED", ignoreCase = true)) {
+                    onApprove(invoiceId, null)
+                } else {
+                    onReject(invoiceId, null)
+                }
+                viewModel.resetActionState()
+            }
+            else -> {}
+        }
     }
 
+    val isLoading = threeWayMatchState is ThreeWayMatchUiState.Loading ||
+                    invoiceActionState is InvoiceActionUiState.InProgress
+    val matchData  = (threeWayMatchState as? ThreeWayMatchUiState.Success)?.match
+    val loadError  = (threeWayMatchState as? ThreeWayMatchUiState.Error)?.message
+    val actionError = (invoiceActionState as? InvoiceActionUiState.Error)?.message
+
+    var showRejectDialog by remember { mutableStateOf(false) }
+    var rejectNotes      by remember { mutableStateOf("") }
+
     Scaffold(
-        containerColor = DeepSlateBlue,
+        containerColor = if (LocalIsDarkTheme.current) Color.Black else Color(0xFFF2F4F8),
         topBar = {
             ThreeWayMatchTopBar(
                 invoiceId = invoiceId,
@@ -100,32 +90,75 @@ fun ThreeWayMatchScreen(
             )
         },
         bottomBar = {
-            if (!isLoading) {
+            if (!isLoading && matchData != null) {
                 ThreeWayMatchActions(
                     matchPercentage = matchData.overallMatchPercentage,
-                    onApprove = { onApprove(invoiceId, null) },
+                    onApprove = { viewModel.approveInvoice(invoiceId, null) },
                     onReject = { showRejectDialog = true }
                 )
             }
         }
     ) { padding ->
         if (isLoading) {
+            // Branded skeleton detail loader — consistent with the app's design
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .background(
+                        Brush.verticalGradient(
+                            if (LocalIsDarkTheme.current) listOf(Color.Black, Color(0xFF0A0A0A))
+                            else listOf(Color(0xFFF2F4F8), Color(0xFFE8EAEE))
+                        )
+                    )
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    item { SkeletonDetailLoader() }
+                }
+            }
+        } else if (loadError != null || actionError != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = EmeraldMatch)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = AmberWarning,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Text(
+                        text = loadError ?: actionError ?: "Unknown error",
+                        color = SilverText,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(
+                        onClick = { viewModel.loadThreeWayMatch(invoiceId) },
+                        colors = ButtonDefaults.buttonColors(containerColor = ElectricIndigo)
+                    ) { Text("Retry") }
+                }
             }
-        } else {
+        } else if (matchData != null) {
             LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
                     .padding(padding)
                     .background(
                         Brush.verticalGradient(
-                            listOf(DeepSlateBlue, Color(0xFF060E20))
+                            if (LocalIsDarkTheme.current) listOf(Color.Black, Color(0xFF0A0A0A))
+                            else listOf(Color(0xFFF2F4F8), Color(0xFFE8EAEE))
                         )
                     ),
                 contentPadding = PaddingValues(16.dp),
@@ -151,7 +184,7 @@ fun ThreeWayMatchScreen(
                             text = "Line Item Comparison",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                         )
                     }
                 }
@@ -168,7 +201,7 @@ fun ThreeWayMatchScreen(
                 notes = rejectNotes,
                 onNotesChange = { rejectNotes = it },
                 onConfirm = {
-                    onReject(invoiceId, rejectNotes)
+                    viewModel.rejectInvoice(invoiceId, rejectNotes)
                     showRejectDialog = false
                 },
                 onDismiss = {
@@ -188,7 +221,8 @@ private fun ThreeWayMatchTopBar(invoiceId: String, onBack: () -> Unit) {
             .fillMaxWidth()
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFF0D1B3E), Color(0xFF060E20))
+                    if (LocalIsDarkTheme.current) listOf(Color(0xFF111111), Color(0xFF0A0A0A))
+                    else listOf(Color.White, Color(0xFFF5F5F5))
                 )
             )
     ) {
@@ -211,7 +245,7 @@ private fun ThreeWayMatchTopBar(invoiceId: String, onBack: () -> Unit) {
                         text = "3-Way Match",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = PureWhite
+                        color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                     )
                     Text(
                         text = invoiceId,
@@ -224,7 +258,7 @@ private fun ThreeWayMatchTopBar(invoiceId: String, onBack: () -> Unit) {
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Back",
                         tint = SilverText
                     )
@@ -250,7 +284,8 @@ private fun InvoiceSummaryCard(matchData: ThreeWayMatchDTO, modifier: Modifier =
                 .fillMaxWidth()
                 .background(
                     Brush.linearGradient(
-                        listOf(Color(0xFF122250), Color(0xFF0D1B3E))
+                        if (LocalIsDarkTheme.current) listOf(Color(0xFF1A1A1A), Color(0xFF111111))
+                        else listOf(Color.White, Color(0xFFF5F5F5))
                     ),
                     RoundedCornerShape(24.dp)
                 )
@@ -284,7 +319,7 @@ private fun InvoiceSummaryCard(matchData: ThreeWayMatchDTO, modifier: Modifier =
                             text = matchData.vendorName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = PureWhite
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -297,7 +332,7 @@ private fun InvoiceSummaryCard(matchData: ThreeWayMatchDTO, modifier: Modifier =
                     StatusBadge(status = matchData.status)
                 }
 
-                HorizontalDivider(color = SlateBlue600.copy(alpha = 0.3f))
+                HorizontalDivider(color = if (LocalIsDarkTheme.current) Color.White.copy(alpha = 0.08f) else Color.Black.copy(alpha = 0.06f))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -316,7 +351,10 @@ private fun InvoiceSummaryCard(matchData: ThreeWayMatchDTO, modifier: Modifier =
 }
 
 @Composable
-private fun InfoItem(label: String, value: String, valueColor: Color = PureWhite) {
+private fun InfoItem(label: String, value: String, valueColor: Color = Color.Unspecified) {
+    val resolvedColor = if (valueColor == Color.Unspecified) {
+        if (LocalIsDarkTheme.current) Color.White else Color.Black
+    } else valueColor
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(
             text = label,
@@ -330,7 +368,7 @@ private fun InfoItem(label: String, value: String, valueColor: Color = PureWhite
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
-            color = valueColor
+            color = resolvedColor
         )
     }
 }
@@ -363,7 +401,7 @@ private fun OverallMatchCard(matchPercentage: Double, status: InvoiceStatus, mod
                     Brush.linearGradient(
                         listOf(
                             signalColor.copy(alpha = 0.06f),
-                            Color(0xFF0D1B3E)
+                            if (LocalIsDarkTheme.current) Color(0xFF111111) else Color(0xFFF5F5F5)
                         )
                     ),
                     RoundedCornerShape(20.dp)
@@ -390,7 +428,7 @@ private fun OverallMatchCard(matchPercentage: Double, status: InvoiceStatus, mod
                         text = "Overall Match Score",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = PureWhite
+                        color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -442,7 +480,10 @@ private fun LineItemComparisonCard(detail: ValidationDetailDTO, modifier: Modifi
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    Brush.linearGradient(listOf(SlateBlue800, Color(0xFF0B1428))),
+                    Brush.linearGradient(
+                        if (LocalIsDarkTheme.current) listOf(Color(0xFF1A1A1A), Color(0xFF0D0D0D))
+                        else listOf(Color(0xFFFFFFFF), Color(0xFFF4F4F4))
+                    ),
                     RoundedCornerShape(20.dp)
                 )
         ) {
@@ -470,7 +511,7 @@ private fun LineItemComparisonCard(detail: ValidationDetailDTO, modifier: Modifi
                             text = detail.itemName,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = PureWhite
+                            color = if (LocalIsDarkTheme.current) Color.White else Color.Black
                         )
                         Text(
                             text = detail.itemId,
@@ -505,7 +546,7 @@ private fun LineItemComparisonCard(detail: ValidationDetailDTO, modifier: Modifi
                     ComparisonColumn("Invoice", detail.invoiceQuantity, detail.invoicePrice, !detail.overallMatch,   Modifier.weight(1f))
                 }
 
-                HorizontalDivider(color = SlateBlue600.copy(alpha = 0.25f))
+                HorizontalDivider(color = if (LocalIsDarkTheme.current) Color.White.copy(alpha = 0.06f) else Color.Black.copy(alpha = 0.06f))
 
                 // Match indicator pills
                 Row(
@@ -536,7 +577,7 @@ private fun ComparisonColumn(
     isHighlighted: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val bg    = if (isHighlighted) CrimsonMismatch.copy(alpha = 0.10f) else SlateBlue700.copy(alpha = 0.5f)
+    val bg    = if (isHighlighted) CrimsonMismatch.copy(alpha = 0.10f) else if (LocalIsDarkTheme.current) Color(0xFF2A2A2A) else Color(0xFFE8E8E8)
     val textC = if (isHighlighted) CrimsonMismatch else SilverText
 
     Column(
@@ -583,7 +624,7 @@ private fun ThreeWayMatchActions(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                Brush.verticalGradient(listOf(Color(0xFF060E20), Color(0xFF0D1B3E)))
+                if (LocalIsDarkTheme.current) Color(0xFF111111) else Color(0xFFFFFFFF)
             )
     ) {
         Row(
@@ -652,15 +693,15 @@ private fun RejectInvoiceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF0D1B3E),
-        titleContentColor = PureWhite,
-        textContentColor = SilverText,
+        containerColor = if (LocalIsDarkTheme.current) Color(0xFF1A1A1A) else Color.White,
+        titleContentColor = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         title = {
-            Text(text = "Reject Invoice", fontWeight = FontWeight.Bold, color = PureWhite)
+            Text(text = "Reject Invoice", fontWeight = FontWeight.Bold, color = if (LocalIsDarkTheme.current) Color.White else Color.Black)
         },
         text = {
             Column {
-                Text("Provide a reason for rejection:", color = SilverText, fontSize = 14.sp)
+                Text("Provide a reason for rejection:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = notes,
@@ -672,11 +713,11 @@ private fun RejectInvoiceDialog(
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = CrimsonMismatch,
-                        unfocusedBorderColor = SlateBlue600,
-                        focusedTextColor = PureWhite,
-                        unfocusedTextColor = SilverText,
-                        focusedContainerColor = Color(0xFF122250),
-                        unfocusedContainerColor = Color(0xFF122250),
+                        unfocusedBorderColor = if (LocalIsDarkTheme.current) Color.White.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.12f),
+                        focusedTextColor = if (LocalIsDarkTheme.current) Color.White else Color.Black,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        focusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF222222) else Color(0xFFF5F5F5),
+                        unfocusedContainerColor = if (LocalIsDarkTheme.current) Color(0xFF222222) else Color(0xFFF5F5F5),
                         cursorColor = CrimsonMismatch
                     )
                 )
@@ -688,7 +729,7 @@ private fun RejectInvoiceDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = CrimsonMismatch),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Confirm Rejection", color = PureWhite, fontWeight = FontWeight.Bold)
+                Text("Confirm Rejection", color = Color.White, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

@@ -22,18 +22,43 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // Pending callback: stored when the upload screen requests a file
-            var pendingCallback by remember { mutableStateOf<((String) -> Unit)?>(null) }
+            var pendingCallback by remember { mutableStateOf<((String, ByteArray) -> Unit)?>(null) }
 
             // Register the Android system file picker
             val filePickerLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent()
             ) { uri ->
-                val fileName = uri?.lastPathSegment
-                    ?.substringAfterLast("/")
-                    ?.substringAfterLast("%2F")
-                    ?: uri?.path?.substringAfterLast("/")
-                    ?: "selected_file"
-                pendingCallback?.invoke(fileName)
+                if (uri != null) {
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: ByteArray(0)
+
+                    // Step 1: query ContentResolver for the real display name
+                    //         (e.g. "SUBAM_INVOICE.pdf" instead of "document:45045")
+                    var fileName: String? = null
+                    contentResolver.query(
+                        uri,
+                        arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                        null, null, null
+                    )?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            fileName = cursor.getString(0)
+                        }
+                    }
+
+                    // Step 2: if display name is missing/blank, derive extension from MIME type
+                    if (fileName.isNullOrBlank()) {
+                        val mimeType = contentResolver.getType(uri) ?: "application/octet-stream"
+                        val ext = when {
+                            mimeType.contains("pdf")  -> ".pdf"
+                            mimeType.contains("png")  -> ".png"
+                            mimeType.contains("jpeg") || mimeType.contains("jpg") -> ".jpg"
+                            else -> ".pdf"   // safe default – server accepts PDF
+                        }
+                        fileName = "invoice_${System.currentTimeMillis()}$ext"
+                    }
+
+                    pendingCallback?.invoke(fileName!!, bytes)
+                }
                 pendingCallback = null
             }
 
