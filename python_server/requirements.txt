@@ -8,8 +8,9 @@ reportlab==4.2.5
 pillow==11.1.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+pydantic-core==2.27.2     # Pinned to pre-built wheel versions
 pydantic==2.10.4
 pydantic-settings==2.7.0
 aiofiles==24.1.0
 requests==2.32.3          # OCR.space API calls
-google-generativeai>=0.8.0  # Gemini 1.5 Flash PDF extraction
+google-generativeai==0.8.3  # Pinned version for wheel availability
