@@ -1,0 +1,37 @@
+###############################################################################
+#  Render Blueprint – Reconix Invoice Validator
+#  https://render.com/docs/blueprint-spec
+#
+#  Deploy:  Render Dashboard → Blueprints → New Blueprint Instance → connect repo
+###############################################################################
+
+databases:
+  - name: reconix-db
+    plan: free                       # Free-tier PostgreSQL (256 MB, 90-day expiry)
+    databaseName: reconix
+    user: reconix
+
+services:
+  - type: web
+    name: reconix-api
+    runtime: python
+    plan: free                       # Free-tier web service (spins down after 15 min idle)
+    rootDir: python_server
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+    healthCheckPath: /health
+    envVars:
+      # ── Database (auto-wired from the Render Postgres addon) ──
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reconix-db
+          property: connectionString
+      # ── Auth / JWT ──
+      - key: SECRET_KEY
+        generateValue: true          # Render generates a random 64-char secret
+      # ── Gemini AI (set manually in Render dashboard) ──
+      - key: GEMINI_API_KEY
+        sync: false                  # must be set manually
+      # ── OCR.space (set manually if still needed) ──
+      - key: OCR_API_KEY
+        sync: false

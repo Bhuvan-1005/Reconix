@@ -1,208 +1,209 @@
-# Automated Invoice Match Validator
+# Reconix — Automated Invoice Match Validator
 
-A **Full Stack Kotlin Multiplatform** financial application that validates vendor invoices against Purchase Orders (PO) and Goods Receipt Notes (GRN) using **3-Way Match** validation logic.
+A full-stack financial application that validates vendor invoices against Purchase Orders (PO) and Goods Receipt Notes (GRN) using **3-Way Match** logic.
 
-## 🏗️ Architecture
+**Stack:** Kotlin Multiplatform (Compose Multiplatform) frontend + Python/FastAPI backend + PostgreSQL
+
+---
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        SHARED MODULE (:shared)                  │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  SharedTypes.kt                                          │   │
-│  │  - InvoiceDTO, PurchaseOrderDTO, ValidationResult        │   │
-│  │  - InvoiceStatus enum (MATCHED, MISMATCH, PENDING)       │   │
-│  │  - ApiRoutes object                                      │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└───────────────────────┬─────────────────────────┬───────────────┘
-                        │                         │
-                        ▼                         ▼
-┌───────────────────────────────┐   ┌────────────────────────────┐
-│     BACKEND (:server)         │   │   FRONTEND (:composeApp)   │
-│  ┌─────────────────────────┐  │   │  ┌──────────────────────┐  │
-│  │ Ktor Server (Netty)     │  │   │  │ Jetpack Compose      │  │
-│  │ - POST /invoice/submit  │◄─┼───┼──│ - VendorDashboard    │  │
-│  │ - GET /po/list          │  │   │  │ - VendorViewModel    │  │
-│  └─────────────────────────┘  │   │  └──────────────────────┘  │
-│  ┌─────────────────────────┐  │   │  ┌──────────────────────┐  │
-│  │ Exposed ORM             │  │   │  │ Ktor Client          │  │
-│  │ - PostgreSQL            │  │   │  │ - InvoiceRepository  │  │
-│  │ - HikariCP Pool         │  │   │  │ - KtorClient         │  │
-│  └─────────────────────────┘  │   │  └──────────────────────┘  │
-└───────────────────────────────┘   └────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      SHARED MODULE (:shared)                     │
+│   SharedTypes.kt — DTOs, InvoiceStatus enum, ApiRoutes           │
+└─────────────────────┬────────────────────────┬───────────────────┘
+                      │                        │
+                      ▼                        ▼
+┌─────────────────────────────┐   ┌────────────────────────────────┐
+│   BACKEND (python_server/)  │   │   FRONTEND (:composeApp)       │
+│                             │   │                                │
+│   FastAPI + SQLAlchemy      │   │   Compose Multiplatform        │
+│   PostgreSQL                │◄──│   Ktor HTTP Client             │
+│   Uvicorn  :8081            │   │   Android / iOS / Desktop      │
+└─────────────────────────────┘   └────────────────────────────────┘
 ```
 
-## 📋 Business Logic: 3-Way Match
+---
 
-The system validates Vendor Invoices against Purchase Orders (PO) and Goods Receipt Notes (GRN):
-
-### Validation Rules:
-1. **Quantity Rule**: Invoice Quantity must be ≤ Sum(GRN Quantities) for each item
-2. **Price Rule**: Invoice Unit Price must match PO Unit Price (±$0.05 tolerance)
-
-### Validation Status:
-- ✅ **MATCHED**: All rules passed
-- ❌ **MISMATCH**: One or more rules failed
-- ⏳ **PENDING**: Awaiting validation
-
-## 🛠️ Project Structure
+## Project Structure
 
 ```
 Invoice Project/
-├── shared/                          # Shared Module
-│   └── src/commonMain/kotlin/
-│       └── com/example/reconix/shared/
-│           └── SharedTypes.kt       # DTOs, Enums, API Routes
+├── python_server/               # FastAPI backend
+│   ├── main.py                  # App entry point, router mounting
+│   ├── models.py                # SQLAlchemy ORM models
+│   ├── schemas.py               # Pydantic request/response schemas
+│   ├── database.py              # Engine, SessionLocal, Base
+│   ├── seed_data.py             # DB seeding (users, POs, GRNs)
+│   ├── core/
+│   │   ├── config.py            # Pydantic Settings (reads .env)
+│   │   └── security.py          # JWT, password hashing, RBAC
+│   ├── routers/
+│   │   ├── auth.py              # POST /auth/login, /auth/logout
+│   │   ├── invoices.py          # Invoice CRUD + approve/reject
+│   │   ├── purchase_orders.py   # PO list, detail, create
+│   │   ├── grn.py               # GRN endpoints
+│   │   ├── dashboard.py         # Metrics and activity feed
+│   │   └── admin.py             # Admin-only user management
+│   ├── services/
+│   │   ├── invoice_service.py          # 3-Way Match logic
+│   │   ├── invoice_ingestion_service.py# OCR + Gemini pipeline
+│   │   ├── gemini_extraction_service.py# Google Gemini PDF extraction
+│   │   ├── ocr_extraction_service.py   # OCR.space integration
+│   │   ├── auth_service.py             # Login logic
+│   │   ├── purchase_order_service.py   # PO queries
+│   │   ├── finance_service.py          # Finance DB queries
+│   │   ├── pdf_generator_service.py    # ReportLab PDF generation
+│   │   └── email_service.py            # SMTP email dispatch
+│   ├── tests/
+│   │   ├── conftest.py                 # pytest fixtures, test DB
+│   │   ├── test_auth.py
+│   │   ├── test_invoices.py
+│   │   ├── test_purchase_orders.py
+│   │   └── test_dashboard.py
+│   ├── scripts/
+│   │   └── show_db.py                  # Dev utility: print DB tables
+│   ├── uploads/                        # Uploaded invoices and PO PDFs
+│   ├── .env                            # Local env vars (not committed)
+│   ├── requirements.txt
+│   └── pyproject.toml
 │
-├── server/                          # Backend Module
-│   └── src/main/kotlin/
-│       └── com/example/reconix/server/
-│           ├── Application.kt       # Ktor entry point
-│           ├── database/
-│           │   ├── DatabaseFactory.kt
-│           │   ├── Tables.kt        # Exposed Tables
-│           │   └── SeedData.kt
-│           ├── service/
-│           │   └── InvoiceService.kt # 3-Way Match Logic
-│           └── plugins/
-│               ├── Routing.kt
-│               ├── Serialization.kt
-│               ├── StatusPages.kt
-│               └── Cors.kt
-│
-├── composeApp/                      # Frontend Module
+├── composeApp/                  # Kotlin Multiplatform frontend
 │   └── src/
-│       ├── commonMain/kotlin/
-│       │   └── com/example/reconix/
-│       │       ├── App.kt
-│       │       ├── network/KtorClient.kt
-│       │       ├── repository/InvoiceRepository.kt
-│       │       ├── viewmodel/VendorViewModel.kt
-│       │       └── ui/VendorDashboard.kt
-│       ├── androidMain/kotlin/      # Android Ktor Client
-│       ├── iosMain/kotlin/          # iOS Ktor Client
-│       └── jvmMain/kotlin/          # Desktop Ktor Client
+│       ├── commonMain/kotlin/com/example/reconix/
+│       │   ├── App.kt                       # Root composable / nav graph
+│       │   ├── auth/                        # AuthManager, BiometricAuth (expect)
+│       │   ├── network/KtorClient.kt        # HTTP client (expect)
+│       │   ├── repository/InvoiceRepository.kt  # All API calls
+│       │   ├── viewmodel/                   # Admin, Finance, Vendor, InvoiceList VMs
+│       │   ├── ui/screens/                  # All screens
+│       │   ├── ui/components/               # GlassCard, StatCard, SkeletonLoader, etc.
+│       │   └── ui/theme/                    # Color, Typography, Shape, Theme
+│       ├── androidMain/   # Android engine, MainActivity, BiometricAuth
+│       ├── iosMain/       # iOS engine, MainViewController, BiometricAuth
+│       ├── jvmMain/       # Desktop entry point
+│       ├── jsMain/        # JS stubs
+│       └── wasmJsMain/    # WasmJS stubs
 │
-├── docker-compose.yml               # PostgreSQL setup
-└── gradle/libs.versions.toml        # Version catalog
+├── shared/                      # Shared Kotlin types (all platforms)
+│   └── src/commonMain/kotlin/com/example/reconix/shared/
+│       └── SharedTypes.kt       # InvoiceDTO, PurchaseOrderDTO, InvoiceStatus, ApiRoutes
+│
+├── gradle/libs.versions.toml    # Gradle version catalog
+├── build.gradle.kts
+└── settings.gradle.kts
 ```
 
-## 🚀 Implementation Steps
+---
+
+## Business Logic: 3-Way Match
+
+Invoices are validated against both the PO and the GRN:
+
+| Rule | Condition | Fail message |
+|---|---|---|
+| Quantity | Invoice qty <= sum of GRN received qty per item | "qty exceeds received qty" |
+| Price | Invoice unit price matches PO unit price within tolerance | "price mismatch" |
+
+**Statuses:** `PENDING` → `MATCHED` or `MISMATCH`
+
+---
+
+## Setup & Running
 
 ### Prerequisites
-- JDK 11+
-- Docker Desktop
-- Android Studio / IntelliJ IDEA
-- Android SDK (for mobile development)
 
-### Step 1: Start PostgreSQL Database
+- Python 3.11+
+- PostgreSQL 16 (running locally)
+- Android Studio (for mobile builds)
 
-```powershell
-# Start the PostgreSQL container
-docker-compose up -d
+### 1. Configure the database
 
-# Verify it's running
-docker ps
+Create a PostgreSQL database named `invoice_db`:
 
-# Check logs
-docker-compose logs postgres
+```sql
+CREATE DATABASE invoice_db;
 ```
 
-**Database Configuration:**
-- Host: `localhost`
-- Port: `5432`
-- User: `user`
-- Password: `password`
-- Database: `invoice_db`
+Copy `.env.example` to `.env` (or edit `python_server/.env`) with your credentials:
 
-### Step 2: Run the Ktor Server
-
-```powershell
-# From project root (Windows)
-.\gradlew.bat :server:run
-
-# macOS/Linux
-./gradlew :server:run
+```env
+DATABASE_USER=postgres
+DATABASE_PASSWORD=yourpassword
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_NAME=invoice_db
+SECRET_KEY=your-secret-key
+OCR_API_KEY=your-ocr-api-key
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
-**Server endpoints available at `http://localhost:8080`:**
-- `GET /health` - Health check
-- `GET /po/list` - List all Purchase Orders
-- `GET /po/{id}` - Get specific PO
-- `POST /invoice/submit` - Submit invoice for validation
-- `GET /invoice/list` - List all invoices
-- `GET /grn/po/{poId}` - Get GRNs for a PO
+### 2. Install Python dependencies
 
-### Step 3: Run the Android App
-
-```powershell
-# Install on connected device/emulator (Windows)
-.\gradlew.bat :composeApp:installDebug
-
-# macOS/Linux
-./gradlew :composeApp:installDebug
+```bash
+cd python_server
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+# or: source .venv/bin/activate  # macOS/Linux
+pip install -r requirements.txt
 ```
 
-**Note:** The Android app connects to `http://10.0.2.2:8080/` (emulator localhost mapping).
+### 3. Start the backend
 
-## 🔒 Type Safety Guarantee
+```bash
+python main.py
+```
 
-The **Critical Requirement** is achieved through the shared module:
+Server runs at `http://0.0.0.0:8081`. On first start it auto-creates all tables and seeds demo data.
+
+**Key endpoints:**
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| POST | `/auth/login` | Login (returns JWT) |
+| GET | `/po/list` | List purchase orders |
+| POST | `/invoice/submit` | Submit invoice for validation |
+| GET | `/invoice/list` | List all invoices |
+| POST | `/invoice/{id}/approve` | Approve invoice (Finance) |
+| POST | `/invoice/{id}/reject` | Reject invoice (Finance) |
+| GET | `/invoice/{id}/three-way-match` | Run 3-way match |
+| GET | `/dashboard/metrics` | Dashboard stats |
+
+### 4. Run the Android app
+
+Update the backend IP in `composeApp/src/androidMain/.../KtorClient.android.kt` to your machine's LAN IP (so a physical device can reach it over Wi-Fi):
 
 ```kotlin
-// shared/src/commonMain/kotlin/.../SharedTypes.kt
-@Serializable
-data class InvoiceDTO(
-    val id: String,
-    val poId: String,
-    val vendorId: String,
-    val totalAmount: Double,
-    val status: InvoiceStatus,  // ← Shared enum
-    val items: List<InvoiceItemDTO>  // ← Shared type
-)
+actual fun platformBaseUrl(): String = "http://<your-lan-ip>:8081"
 ```
 
-**If you change `InvoiceDTO` in the shared module:**
-- ✅ Server (`InvoiceService.kt`) won't compile until fixed
-- ✅ Android App (`InvoiceRepository.kt`) won't compile until fixed
-- ✅ ViewModel (`VendorViewModel.kt`) won't compile until fixed
+Then build and install:
 
-## 🧪 Sample API Requests
-
-### Submit Invoice (3-Way Match Test)
 ```bash
-curl -X POST http://localhost:8080/invoice/submit \
-  -H "Content-Type: application/json" \
-  -d '{
-    "id": "INV-001",
-    "poId": "PO-001",
-    "vendorId": "VENDOR-001",
-    "totalAmount": 1500.00,
-    "status": "PENDING",
-    "items": [
-      {"itemId": "ITEM-001", "quantity": 50, "unitPrice": 25.00},
-      {"itemId": "ITEM-002", "quantity": 10, "unitPrice": 25.00}
-    ]
-  }'
+.\gradlew.bat :composeApp:installDebug
 ```
 
-### Expected Response (MATCHED)
-```json
-{
-  "status": "MATCHED",
-  "message": "Invoice validated successfully - 3-Way Match PASSED",
-  "timestamp": "2026-02-14T10:30:00Z"
-}
+### 5. Run the tests
+
+```bash
+cd python_server
+pytest tests/ -v
 ```
 
-### Expected Response (MISMATCH)
-```json
-{
-  "status": "MISMATCH",
-  "message": "3-Way Match FAILED: Item ITEM-001: Invoice qty (100) exceeds received qty (50)",
-  "timestamp": "2026-02-14T10:30:00Z"
-}
-```
+---
 
-## 📝 License
+## Demo Credentials
 
-MIT License
+| Role | Username | Password |
+|---|---|---|
+| Vendor | vendor | vendor123 |
+| Finance | finance | finance123 |
+| Admin | admin | admin123 |
+
+---
+
+## License
+
+MIT
