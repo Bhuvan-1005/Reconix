@@ -17,10 +17,13 @@ services:
     runtime: python
     plan: free                       # Free-tier web service (spins down after 15 min idle)
     rootDir: python_server
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
     healthCheckPath: /health
     envVars:
+      # ── Python version (forces Render to use 3.11 instead of 3.14) ──
+      - key: PYTHON_VERSION
+        value: 3.11.11
       # ── Database (auto-wired from the Render Postgres addon) ──
       - key: DATABASE_URL
         fromDatabase:
