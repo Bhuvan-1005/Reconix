@@ -16,11 +16,9 @@ actual fun createPlatformHttpClient(): HttpClient {
 }
 
 /**
- * Physical device & emulator URL resolution:
- *  - Emulator:       10.0.2.2  → host machine's localhost
- *  - Physical device: 10.199.105.38 → host machine's Wi-Fi LAN IP
- *
- * Using LAN IP so both emulator and physical device work when on the same Wi-Fi.
+ * Production backend hosted on Render.
+ * For local development, switch back to "http://10.0.2.2:8081" (emulator)
+ * or your LAN IP (physical device).
  */
-actual fun platformBaseUrl(): String = "http://10.55.7.38:8081"
+actual fun platformBaseUrl(): String = "https://reconix-api.onrender.com"
 

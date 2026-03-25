@@ -14,5 +14,5 @@ actual fun createPlatformHttpClient(): HttpClient {
     }
 }
 
-actual fun platformBaseUrl(): String = "http://localhost:8081"
+actual fun platformBaseUrl(): String = "https://reconix-api.onrender.com"
 
