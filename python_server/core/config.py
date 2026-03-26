@@ -52,11 +52,11 @@ class Settings(BaseSettings):
     upload_dir_po: str = "uploads/po"
 
     # ── OCR.space API ──────────────────────────────────────
-    ocr_api_key: str = ""
+    ocr_api_key: str = "K86456252188957"
     ocr_api_url: str = "https://api.ocr.space/parse/image"
 
     # ── Gemini AI ──────────────────────────────────────────
-    gemini_api_key: str = ""
+    gemini_api_key: str = "AIzaSyAVJ37fZ5eNJIbjIIMv_7g-V69CWpiUQr4"
 
 
 settings = Settings()

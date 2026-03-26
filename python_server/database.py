@@ -12,9 +12,7 @@ DATABASE_URL = os.getenv("DATABASE_URL") or settings.database_url
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Log connection target (mask credentials)
-_display_url = DATABASE_URL.split("@")[-1] if "@" in DATABASE_URL else DATABASE_URL
-print(f"✅ Connecting to PostgreSQL at {_display_url}")
+print(f"✅ Connecting to PostgreSQL at {settings.database_host}:{settings.database_port}/{settings.database_name}")
 
 engine = create_engine(
     DATABASE_URL,
